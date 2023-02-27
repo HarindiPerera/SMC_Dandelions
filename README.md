@@ -16,7 +16,6 @@ TODO
 ## 🤝 Contribute to the Project
 Features and Issue requests are always welcome! Feel free to follow [SMC Firmware Kickoff](https://docs.google.com/document/d/1oOW2zgXXE6f_pBLMpTqbeX1sFP4xKpVGW_CMsIJQehI/edit#) if you want to understand the high level sprint allocation. 
 
-
 ## 👤 Authors
 
 This project exists thanks to :  <br />

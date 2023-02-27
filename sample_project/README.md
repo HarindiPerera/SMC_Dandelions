@@ -33,3 +33,13 @@ Below is short explanation of remaining files in the project folder.
 ```
 Additionally, the sample project contains Makefile and component.mk files, used for the legacy Make based build system. 
 They are not used or needed when building with CMake and idf.py.
+
+
+
+## Info to have on hand
+
+Upon changes , never push to main without building and testing. Upon the simplest builds , these are the modifications you would see. 
+
+<img width="1447" alt="image" src="https://user-images.githubusercontent.com/104550460/221480134-8543df40-a5de-48da-b0a0-a3bd787d657c.png">
+
+
