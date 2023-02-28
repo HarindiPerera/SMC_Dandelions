@@ -26,7 +26,7 @@
 
 // I2C CONSTANTS
 #define I2C_MASTER_FREQ_HZ 100000
-#define I2C_MASTER_NUM I2C_NUM_0                // [TODO] -> unsure what this is 
+#define I2C_MASTER_NUM I2C_NUM_0                //*I2C bus number on ESP32
 #define I2C_MASTER_TX_BUF_DISABLE  0            //i2c master does not need a buffer
 #define I2C_MASTER_RX_BUF_DISABLE  0            //i2c master does not need a buffer
 #define ESP_SLAVE_ADDR 0xD5                     //Device address 1101 | ADC1 : 100 | ADC2 : 010
@@ -35,6 +35,9 @@
 
 #define DATA_LENGTH 512                         //Max Buffer Len
 #define RW_LENGTH 129                           //Reg READ_WRITE len 
+
+#define SAMPLE_DELAY_MS 1000                    //delay between ADC samples in milliseconds
+
 
 // For these masks each bit coresponds to a gpio, bit 4 = gpio 4 ect
 #define OUTPUT_BIT_MASK 0b001100001110100000110000000000100000
