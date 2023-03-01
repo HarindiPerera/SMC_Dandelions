@@ -2,8 +2,14 @@
 #include "esp_err.h"
 #include "driver/gpio.h"
 
-// FUNCTIONS 
-
+/**
+ *@brief Configures GPIO pins for input and output
+ *This function initializes GPIO pins for input and output as specified by theioConfig parameter. The outputs are configured with no interrupts enabled,
+set as outputs with a defined output bit mask, and with pulldown mode enabled
+and pullup mode disabled.
+*@return [gpio_config_t] Returns ESP_OK on success, otherwise an error code indicating
+the cause of the failure.
+ */
 esp_err_t setupHW(void){
 
     gpio_config_t ioConfig = {};    // zero initialise the structure
@@ -33,3 +39,4 @@ esp_err_t setupHW(void){
 
     return gpio_config(&ioConfig);
 }
+

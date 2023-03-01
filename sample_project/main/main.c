@@ -1,9 +1,9 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -16,13 +16,12 @@
 #include "esp_err.h"
 #include "DandSMC.h"
 
-
 /**
  * @brief Initialise I2C Comms on ESP32
  *This function initialises the master with the specified config params
  * @return None
  */
-static void i2c_master_init()
+static void i2c_master_init(void)
 {
     i2c_config_t conf;
     conf.mode = I2C_MODE_MASTER;                             //Set the I2C master mode
@@ -35,8 +34,6 @@ static void i2c_master_init()
     i2c_param_config(I2C_MASTER_NUM , &conf);
     i2c_driver_install(I2C_MASTER_NUM,conf.mode, 0,0,0 );    //install the driver
 }
-
-
 
 /**
  * @brief Reads ADC value over I2C.
@@ -142,23 +139,76 @@ static int16_t read_adc_val()
     return value;
 }*/
 
+/**
+ * @brief Looks for I2C devices over the bus
+ * TODO
+ * @return None
+ */
+void i2c_scan()
+{
+    uint8_t i2c_addresses[128];
+    int num_devices = 0;
+    for (int i = 0; i < 128; i++) {
+        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, i << 1 | I2C_MASTER_WRITE, true);
+        i2c_master_stop(cmd);
+        esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 10 / portTICK_PERIOD_MS);
+        i2c_cmd_link_delete(cmd);
+        if (ret == ESP_OK) {
+            i2c_addresses[num_devices++] = i;
+        }
+    }
+    printf("ADC:    Found %d I2C devices:\n", num_devices);
+    for (int i = 0; i < num_devices; i++) {
+        printf("- 0x%02X\n", i2c_addresses[i]);
+    }
+
+}
 
 
+/**
+ * @brief Powers GPIO's for ADC
+ * @param[in] en Boolean 1 = power on and 0 = power off
+ * @return None
+ */
+void adc_pwr(bool en){
+
+    //setting pins as output for ADC
+    gpio_set_direction(ADCLPWR, GPIO_MODE_OUTPUT);
+    gpio_set_direction(ADCRPWR, GPIO_MODE_OUTPUT);
+    printf("ADC:    ADC's Pins set to outputs\n");
+
+    //set ADC pins as high
+    gpio_set_level(ADCLPWR, en);
+    gpio_set_level(ADCRPWR, en);
+    if(en){
+        printf("ADC:    ADC's powered ON.\n");
+    }else {
+        printf("ADC:    ADC's powered OFF.\n");
+    }
+    
+}
 
 void app_main(void)
 {
 
     printf("start of main\n");
 
+    //Power the lads
+    adc_pwr(1);
+
     //Init dem comms
     i2c_master_init();
-
     
+    // Scan for I2C devices on the bus
+    i2c_scan();
+
     //yeahbois
     while(true)
     {
         int16_t adc_val = read_adc_val();
-        printf("ADC Value : %d/n" , adc_val);
+        printf("ADC Value:   %d\n" , adc_val);
     }
 
 }
