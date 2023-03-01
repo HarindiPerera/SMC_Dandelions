@@ -19,17 +19,17 @@
 
 #define ADCLPWR 16                              //Left ADC power on gpio 16
 #define ADCRPWR 17                              //Right ADC power on gpio 17
-#define I2C_MASTER_SDA_IO 21                    //ESP32 SDA 21  
-#define I2C_MASTER_SCL_IO 22                    //ESP32 SCL 22
-//#define I2C_SLAVE_SDA_IO                        // [TODO]
-//#define I2C_SLAVE_SCL_IO                        // [TODO]
+#define I2C_SDA_PIN 21                          //ESP32 SDA 21  
+#define I2C_SCL_PIN 22                          //ESP32 SCL 22
+//#define I2C_SLAVE_SDA_IO                      // [TODO]
+//#define I2C_SLAVE_SCL_IO                      // [TODO]
 
 // I2C CONSTANTS
 #define I2C_MASTER_FREQ_HZ 100000
 #define I2C_MASTER_NUM I2C_NUM_0                //*I2C bus number on ESP32
 #define I2C_MASTER_TX_BUF_DISABLE  0            //i2c master does not need a buffer
 #define I2C_MASTER_RX_BUF_DISABLE  0            //i2c master does not need a buffer
-#define ESP_SLAVE_ADDR 0xD5                     //Device address 1101 | ADC1 : 100 | ADC2 : 010
+#define ESP_SLAVE_ADDR 0x68                     //Device address 1101 | ADC1 : 100 | ADC2 : 010
 #define ACK_EN 0x1                              //Master checks Ack enabled
 #define ACK_DIS 0x0                             //Master checks Ack disabled
 
