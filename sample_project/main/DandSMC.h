@@ -54,5 +54,6 @@
 
 // DANDELIONS FUNCTION PROTOYPES
 esp_err_t setupHW(void);            // configures all the gpio/direction/pullmode/intr status
+void print_check(void);
 
 #endif

@@ -7,7 +7,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
-#include "driver/timer.h"
+#include "driver/gptimer.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "esp_log.h"
@@ -193,7 +193,7 @@ void adc_pwr(bool en){
 void app_main(void)
 {
 
-    printf("start of main\n");
+    print_check();
 
     //Power the lads
     adc_pwr(1);

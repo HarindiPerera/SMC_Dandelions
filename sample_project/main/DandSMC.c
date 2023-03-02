@@ -1,6 +1,20 @@
-#include "DandSMC.h"
-#include "esp_err.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "driver/gptimer.h"
+#include "driver/i2c.h"
 #include "driver/gpio.h"
+#include "esp_log.h"
+#include "sdkconfig.h"
+#include "esp_system.h"
+#include "esp_err.h"
+#include "DandSMC.h"
 
 /**
  *@brief Configures GPIO pins for input and output
@@ -39,4 +53,16 @@ esp_err_t setupHW(void){
 
     return gpio_config(&ioConfig);
 }
+
+/**
+ *@brief prints a message to the console
+ *Super basic print of "hey now" for debugging
+*@return None
+ */
+void print_check(void)
+{
+    printf("hey now");
+}
+
+
 

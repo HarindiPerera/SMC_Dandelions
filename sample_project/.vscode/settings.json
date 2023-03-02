@@ -5,6 +5,8 @@
   "idf.adapterTargetName": "esp32",
   "files.associations": {
     "i2c.h": "c",
-    "dandsmc.h": "c"
+    "dandsmc.h": "c",
+    "esp_log.h": "c",
+    "queue.h": "c"
   }
 }
