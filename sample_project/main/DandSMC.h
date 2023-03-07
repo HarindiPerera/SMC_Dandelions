@@ -3,9 +3,25 @@
 
 #include "esp_err.h"
 
-// HARDWARE CONSTANTS
-#define TICKS_PER_REV 6000          // The number of ticks per revolution of our steper motor
 
+//USER DEFINED
+typedef enum{
+    BOOT,
+    IDLE,
+    EXPERIMENT,
+    NEUTRAL,
+    LOG,
+    COMMS,
+    SHUTDOWN
+} state_t;
+
+
+
+// HARDWARE CONSTANTS
+#define TICKS_PER_REV 10000          // The number of ticks per revolution of our steper motor
+
+#define QUEUE_LENGTH    10
+#define ITEM_SIZE       sizeof(uint32_t)
 
 // HARDWARE PIN DEFINITIONS
 #define MOTDIR 25
@@ -38,7 +54,7 @@
 #define RW_LENGTH 129                           //Reg READ_WRITE len 
 
 #define SAMPLE_DELAY_MS 1000                    //delay between ADC samples in milliseconds
-
+#define WD_DELAY_MS 10                          //WD settling time between ticks in milliseconds
 
 // For these masks each bit coresponds to a gpio, bit 4 = gpio 4 ect
 #define OUTPUT_BIT_MASK 0b001100001110100000110000000000100000
@@ -54,6 +70,10 @@
 
 // DANDELIONS FUNCTION PROTOYPES
 esp_err_t setupHW(void);            // configures all the gpio/direction/pullmode/intr status
-void print_check(void);
-
+void print_check(void);             //prints a message to the console
+void I2C_Scan();                    //Looks for I2C devices over the bus and prints on console
+int RunMotor(bool dir, int ticks);  //Runs a stepper motor for a specified number of steps in a specified direction.
+int16_t ADC_Read();                 //
+void I2C_Init(void);
+void ADC_Pwr(bool en);
 #endif

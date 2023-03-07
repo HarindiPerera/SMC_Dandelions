@@ -16,199 +16,94 @@
 #include "esp_err.h"
 #include "DandSMC.h"
 
-/**
- * @brief Initialise I2C Comms on ESP32
- *This function initialises the master with the specified config params
- * @return None
- */
-static void i2c_master_init(void)
-{
-    i2c_config_t conf;
-    conf.mode = I2C_MODE_MASTER;                             //Set the I2C master mode
-    conf.sda_io_num = I2C_SDA_PIN;                           //Assign the sda and scl pin numbers
-    conf.scl_io_num = I2C_SCL_PIN;
-    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;                 //enable pullups but may need removal since we hw implemented this
-    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.master.clk_speed = I2C_MASTER_FREQ_HZ;              //set clock speed to 100kHz
-
-    i2c_param_config(I2C_MASTER_NUM , &conf);
-    i2c_driver_install(I2C_MASTER_NUM,conf.mode, 0,0,0 );    //install the driver
-}
+//QUEUE
+QueueHandle_t experimentQueue = NULL;
 
 /**
- * @brief Reads ADC value over I2C.
- *This function sends a command over channel 0 to adc. Waits for 
- conversation and reads value over adc.
- * @return 16bit signed integer val
+ * @brief Task to feed the hardware watchdog every 5 seconds.
+ * 
+ * This function sets the WDI pin high to feed the hardware watchdog, waits for a settling time,
+ * and then sets the WDI pin low to complete the feed. It then gives control back to the scheduler 
+ * for 5 seconds before repeating the process. If the function breaks from the loop for some reason,
+ * it is deleted and an error message is printed.
+ * 
+ * @param pvParamemters A pointer to any parameters passed to the function.  
+ * @return None.
  */
-static int16_t read_adc_val()
-{
-    uint8_t buf[3];
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
+void hwWDPulseTask(void* pvParamemters){
 
-    //sends the i2c address and a write flag - true shows the the master should send a stop condition after writing data
-    i2c_master_write_byte(cmd, ESP_SLAVE_ADDR << 1 | I2C_MASTER_WRITE, true);
-    //command 0x80 starts convo and sets adc to read channel 0
-    i2c_master_write_byte(cmd, 0x80, true);
+    //Queue Info
+    char c = 'p';
 
-    //this is stop condition to end i2c comms
-    i2c_master_stop(cmd);
+    //Infinite Loop
+    for(;;){
 
-    i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, 1000 / portTICK_PERIOD_MS );
-    i2c_cmd_link_delete(cmd);
+        printf("Watchdog fed\n");
 
-    //wait a bit//
-    vTaskDelay(SAMPLE_DELAY_MS / portTICK_PERIOD_MS);
+        gpio_set_level(WDI,1);                              // Set the HW_watchdog high
+        vTaskDelay(WD_DELAY_MS/portTICK_PERIOD_MS);         // settling time
+        gpio_set_level(WDI,0);                              // Set the HW_watchdog low
+        vTaskDelay(5000/portTICK_PERIOD_MS);                // Control back to scheduler
 
-    //read
-    cmd = i2c_cmd_link_create();
-
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, ESP_SLAVE_ADDR << 1 | I2C_MASTER_READ, true);
-    i2c_master_read_byte(cmd , &buf[0], I2C_MASTER_ACK);
-    i2c_master_read_byte(cmd , &buf[1], I2C_MASTER_ACK);
-    i2c_master_read_byte(cmd , &buf[2], I2C_MASTER_LAST_NACK);
-    i2c_master_stop(cmd);
-
-    i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, 1000 / portTICK_PERIOD_MS );
-    i2c_cmd_link_delete(cmd);
-
-    /*Convert raw uggy data to 16bit signed integer - untested*/
-    int16_t value = ((buf[0] & 0x0F) << 8) | buf[1];
-    if (value & 0x0800)
-    {
-        value |= 0xF000;
+        //Send to Queue
+        xQueueSend(experimentQueue, &c, portMAX_DELAY);
     }
-    return value;
 }
 
 
-/**
- * @brief Read ADC value in One-Shot Conversion mode
- *
- * @param[in] channel ADC channel to read (0-3)
- * @return ADC value as a signed 16-bit integer
- */
-/*static int16_t read_adc_oneshot(uint8_t channel)
-{
-    uint8_t buf[3];
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+void experimentTask(void*pvParameters){
 
-    i2c_master_start(cmd);
+    BaseType_t xStatus;
+    //Queue Info
+    char c  = 'p'; 
 
-    // Send the I2C address and write flag - true shows the master should send a stop condition after writing data
-    i2c_master_write_byte(cmd, ESP_SLAVE_ADDR << 1 | I2C_MASTER_WRITE, true);
-    
-    // Set up the conversion command based on the selected channel and mode
-    uint8_t conversion_cmd = 0x80 | ((channel & 0x03) << 4);
+    for(;;){
+        printf("the Experiment task is blocked after the line\n");
+        xStatus = xQueueReceive(experimentQueue, &c, portMAX_DELAY);        //Blocking function    
+        if (xStatus == pdPASS){
+            
+            printf("RUN:    Data received from the queue is : %c\n",c);     //Successful data recieved from queue
 
-    // Send the conversion command
-    i2c_master_write_byte(cmd, conversion_cmd, true);
-
-    // End the I2C communication
-    i2c_master_stop(cmd);
-
-    // Send the command to the I2C bus
-    i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 1000 / portTICK_PERIOD_MS);
-    i2c_cmd_link_delete(cmd);
-
-    // Wait for the conversion to complete
-    vTaskDelay(SAMPLE_DELAY_MS / portTICK_PERIOD_MS);
-
-    // Read the result from the ADC
-    cmd = i2c_cmd_link_create();
-
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, ESP_SLAVE_ADDR << 1 | I2C_MASTER_READ, true);
-    i2c_master_read_byte(cmd, &buf[0], I2C_MASTER_ACK);
-    i2c_master_read_byte(cmd, &buf[1], I2C_MASTER_ACK);
-    i2c_master_read_byte(cmd, &buf[2], I2C_MASTER_LAST_NACK);
-    i2c_master_stop(cmd);
-
-    i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 1000 / portTICK_PERIOD_MS);
-    i2c_cmd_link_delete(cmd);
-
-    // Convert the raw data to a signed 16-bit integer
-    int16_t value = ((buf[0] & 0x0F) << 8) | buf[1];
-    if (value & 0x0800)
-    {
-        value |= 0xF000;
-    }
-
-    return value;
-}*/
-
-/**
- * @brief Looks for I2C devices over the bus
- * TODO
- * @return None
- */
-void i2c_scan()
-{
-    uint8_t i2c_addresses[128];
-    int num_devices = 0;
-    for (int i = 0; i < 128; i++) {
-        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-        i2c_master_start(cmd);
-        i2c_master_write_byte(cmd, i << 1 | I2C_MASTER_WRITE, true);
-        i2c_master_stop(cmd);
-        esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 10 / portTICK_PERIOD_MS);
-        i2c_cmd_link_delete(cmd);
-        if (ret == ESP_OK) {
-            i2c_addresses[num_devices++] = i;
+            //Start of Experiment
+            RunMotor(1,70000);  
+            ADC_Read();
         }
-    }
-    printf("ADC:    Found %d I2C devices:\n", num_devices);
-    for (int i = 0; i < num_devices; i++) {
-        printf("- 0x%02X\n", i2c_addresses[i]);
+        else{
+            printf("RUN:    Data cannot be read through queue");
+        }
+        //Time Delay
+        vTaskDelay(10/portTICK_PERIOD_MS); 
     }
 
 }
 
 
-/**
- * @brief Powers GPIO's for ADC
- * @param[in] en Boolean 1 = power on and 0 = power off
- * @return None
- */
-void adc_pwr(bool en){
-
-    //setting pins as output for ADC
-    gpio_set_direction(ADCLPWR, GPIO_MODE_OUTPUT);
-    gpio_set_direction(ADCRPWR, GPIO_MODE_OUTPUT);
-    printf("ADC:    ADC's Pins set to outputs\n");
-
-    //set ADC pins as high
-    gpio_set_level(ADCLPWR, en);
-    gpio_set_level(ADCRPWR, en);
-    if(en){
-        printf("ADC:    ADC's powered ON.\n");
-    }else {
-        printf("ADC:    ADC's powered OFF.\n");
-    }
-    
-}
+//___________________________________________APP__MAIN_______________________________________________
 
 void app_main(void)
 {
 
+    //[HW Setup check]
+    if(setupHW()!= ESP_OK){
+        printf("SETUP ERROR: Restarting...\n");
+        vTaskDelay(2000/portTICK_PERIOD_MS);
+        esp_restart();
+    }
+
+    //[Software Setup]
     print_check();
+    ADC_Pwr(1);     //Power the lads
+    I2C_Init();     //Init dem comms
+    I2C_Scan();     //Scan for I2C devices on the bus
 
-    //Power the lads
-    adc_pwr(1);
+    experimentQueue = xQueueCreate( QUEUE_LENGTH, ITEM_SIZE );
 
-    //Init dem comms
-    i2c_master_init();
+    //[Task Creation]
+    xTaskCreatePinnedToCore(hwWDPulseTask, /*Task Name*/ "HWWATCHDOG", /*stackdepth*/ 1024, /*pvParameters*/ NULL,  /*Priority*/ 1, /*ret handel*/NULL, /*core*/0);                
+    xTaskCreatePinnedToCore(experimentTask,"Experiment",4048,NULL,2,NULL,0);
     
-    // Scan for I2C devices on the bus
-    i2c_scan();
-
-    //yeahbois
-    while(true)
-    {
-        int16_t adc_val = read_adc_val();
-        printf("ADC Value:   %d\n" , adc_val);
+    for(;;){  
+        vTaskDelay(1000/portTICK_PERIOD_MS); // do nothing in the main loop 
     }
 
 }
