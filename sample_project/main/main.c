@@ -65,7 +65,7 @@ void experimentTask(void*pvParameters){
             printf("RUN:    Data received from the queue is : %c\n",c);     //Successful data recieved from queue
 
             //Start of Experiment
-            RunMotor(1,70000);  
+            RunMotor(1,TICKS_PER_REV);  
             ADC_Read();
         }
         else{
@@ -76,6 +76,33 @@ void experimentTask(void*pvParameters){
     }
 
 }
+
+
+void restartTask(void*pvParameters){
+    char c = 'p';
+    for (;;) {
+        
+        c = getchar();
+        if (c == 'r') {
+            printf("Restarting ESP32...\n");
+
+            // Delay for a short period to allow any pending tasks to complete.
+            vTaskDelay(100 / portTICK_PERIOD_MS);
+
+            // Restart the ESP32 
+            esp_restart();
+
+            //Send to Queue
+            xQueueSendToBack(experimentQueue, &c, portMAX_DELAY);
+        }
+
+        //Time Delay
+        vTaskDelay(10/portTICK_PERIOD_MS); 
+    }
+
+
+}
+
 
 
 //___________________________________________APP__MAIN_______________________________________________
@@ -101,7 +128,9 @@ void app_main(void)
     //[Task Creation]
     xTaskCreatePinnedToCore(hwWDPulseTask, /*Task Name*/ "HWWATCHDOG", /*stackdepth*/ 1024, /*pvParameters*/ NULL,  /*Priority*/ 1, /*ret handel*/NULL, /*core*/0);                
     xTaskCreatePinnedToCore(experimentTask,"Experiment",4048,NULL,2,NULL,0);
-    
+    xTaskCreatePinnedToCore(restartTask,"Restart",1024,NULL,1,NULL,0);
+
+
     for(;;){  
         vTaskDelay(1000/portTICK_PERIOD_MS); // do nothing in the main loop 
     }

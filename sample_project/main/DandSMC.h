@@ -18,7 +18,7 @@ typedef enum{
 
 
 // HARDWARE CONSTANTS
-#define TICKS_PER_REV 10000          // The number of ticks per revolution of our steper motor
+#define TICKS_PER_REV 60000          // The number of ticks per revolution of our steper motor
 
 #define QUEUE_LENGTH    10
 #define ITEM_SIZE       sizeof(uint32_t)

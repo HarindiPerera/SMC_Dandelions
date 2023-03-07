@@ -109,7 +109,7 @@ int RunMotor(bool dir, int ticks){
         printf("ERROR: Error in setting the motor direction");
         return HW_FAULT;                        // return a HW fault condition if unable to set direction
     }
-    for(int i =0; i<=ticks; i++){
+    for(int i =0; i<ticks; i++){
 
         //Run Print
         err = gpio_set_level(MOTSTEP,1);

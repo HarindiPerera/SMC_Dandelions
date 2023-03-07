@@ -8,6 +8,7 @@
     "dandsmc.h": "c",
     "esp_log.h": "c",
     "queue.h": "c",
-    "task.h": "c"
+    "task.h": "c",
+    "random": "c"
   }
 }
