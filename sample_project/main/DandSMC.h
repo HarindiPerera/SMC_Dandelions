@@ -3,22 +3,9 @@
 
 #include "esp_err.h"
 
-
-//USER DEFINED
-typedef enum{
-    BOOT,
-    IDLE,
-    EXPERIMENT,
-    NEUTRAL,
-    LOG,
-    COMMS,
-    SHUTDOWN
-} state_t;
-
-
-
 // HARDWARE CONSTANTS
-#define TICKS_PER_REV 60000          // The number of ticks per revolution of our steper motor
+#define TICKS_PER_REV 6000          // The number of ticks per revolution of our steper motor
+
 
 #define QUEUE_LENGTH    10
 #define ITEM_SIZE       sizeof(uint32_t)
@@ -32,7 +19,6 @@ typedef enum{
 #define FFAULT 34
 #define MFAULT 35
 #define WDI 23
-
 #define ADCLPWR 16                              //Left ADC power on gpio 16
 #define ADCRPWR 17                              //Right ADC power on gpio 17
 #define I2C_SDA_PIN 21                          //ESP32 SDA 21  
@@ -54,7 +40,6 @@ typedef enum{
 #define RW_LENGTH 129                           //Reg READ_WRITE len 
 
 #define SAMPLE_DELAY_MS 1000                    //delay between ADC samples in milliseconds
-#define WD_DELAY_MS 10                          //WD settling time between ticks in milliseconds
 
 // For these masks each bit coresponds to a gpio, bit 4 = gpio 4 ect
 #define OUTPUT_BIT_MASK 0b001100001110100000110000000000100000
@@ -68,12 +53,57 @@ typedef enum{
 #define HW_FAULT -4
 
 
+// Structure for quick pin itteration
+typedef struct {
+    int pin;
+    const char* name;
+}GPIO_Pins;
+
+// This is a constant structure of GPIO_Pins that relate specifically to the fault indicators
+static const GPIO_Pins faultIndicators[] = {
+    {FFAULT, "FFAULT"},
+    {MFAULT, "MFAULT"},
+    {ADCLPWR, "ADCLPWR"},
+    {ADCRPWR, "ADCRPWR"},
+};
+
+static const GPIO_Pins healthCheck[] = {
+    {MSLEEP,"MSLEEP"},
+    {MVEN, "MVEN"},
+    {MOTEN,"MOTEN"},
+    {FFAULT, "FFAULT"},
+    {MFAULT, "MFAULT"},
+    {ADCLPWR, "ADCLPWR"},
+    {ADCRPWR, "ADCRPWR"},
+};
+
+
 // DANDELIONS FUNCTION PROTOYPES
-esp_err_t setupHW(void);            // configures all the gpio/direction/pullmode/intr status
-void print_check(void);             //prints a message to the console
-void I2C_Scan();                    //Looks for I2C devices over the bus and prints on console
-int RunMotor(bool dir, int ticks);  //Runs a stepper motor for a specified number of steps in a specified direction.
-int16_t ADC_Read();                 //
+// Function appear in the same order in the DandSMC.c file
+esp_err_t setupHW(void);        // configures all the gpio/direction/pullmode/intr status
+
+void print_check(void);
+void I2C_Scan();
+int16_t ADC_Read();
 void I2C_Init(void);
 void ADC_Pwr(bool en);
+
+void hwWDPulseTask(void* pvParamemters);
+
+int updateExperimentCount(bool erase);
+
+void systemHealthCheck();   // SystemhealthCheck calls on the following
+// void motor();
+void checkGPIOS();
+void checkMem();
+void checkADC();        // not implemented
+void checkCANctrl();    // not implemented
+
+int RunExperiment();        // RunExperiment calls on the following
+void PollFaultIndicatorsTask(void* pvParamemters);
+void motor(bool en);    
+int RunMotor(bool dir, int ticks);
+void calibrate();           // Not implemented
+
+
 #endif
