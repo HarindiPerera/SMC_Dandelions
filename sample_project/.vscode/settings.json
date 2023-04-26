@@ -9,6 +9,15 @@
     "esp_log.h": "c",
     "queue.h": "c",
     "task.h": "c",
-    "random": "c"
+    "random": "c",
+    "bitset": "c",
+    "chrono": "c",
+    "algorithm": "c",
+    "array": "c",
+    "string_view": "c",
+    "initializer_list": "c",
+    "regex": "c",
+    "utility": "c",
+    "stdio.h": "c"
   }
 }

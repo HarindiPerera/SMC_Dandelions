@@ -15,6 +15,10 @@
 #include "esp_system.h"
 #include "esp_err.h"
 #include "DandSMC.h"
+#include "nvs.h"
+#include "nvs_flash.h"
+#include <inttypes.h>
+#include "state.h"
 
 //QUEUE
 QueueHandle_t experimentQueue = NULL;
@@ -48,8 +52,10 @@ void hwWDPulseTask(void* pvParamemters){
         //Send to Queue
         xQueueSend(experimentQueue, &c, portMAX_DELAY);
     }
-}
 
+    vTaskDelete(NULL);                                                          // delete task if it breaks for some reason
+    printf("CRITICAL ERROR: hwWDPulseTask broke from loop. Task Deleted\n");    // error msg
+}
 
 void experimentTask(void*pvParameters){
 
@@ -58,15 +64,15 @@ void experimentTask(void*pvParameters){
     char c  = 'p'; 
 
     for(;;){
-        printf("the Experiment task is blocked after the line\n");
+        //printf("the Experiment task is blocked after the line\n");
         xStatus = xQueueReceive(experimentQueue, &c, portMAX_DELAY);        //Blocking function    
         if (xStatus == pdPASS){
             
-            printf("RUN:    Data received from the queue is : %c\n",c);     //Successful data recieved from queue
+            //printf("RUN:    Data received from the queue is : %c\n",c);     //Successful data recieved from queue
 
-            //Start of Experiment
-            RunMotor(1,TICKS_PER_REV);  
-            ADC_Read();
+            printf("Experiment task: Start of Experiment\n\n");
+
+            printf("REMOVED FOR NOW\n");
         }
         else{
             printf("RUN:    Data cannot be read through queue");
@@ -77,8 +83,17 @@ void experimentTask(void*pvParameters){
 
 }
 
+/**
+ * @brief Task to handle triggering of experiments based on input received from the user.
+ * 
+ * This task listens for input from the user via the serial console and performs
+ * experiments based on the input received. The experiments include restarting the ESP32,
+ * running the motor in the forward or backward direction, and reading two ADC values
+ * @param pvParamemters A pointer to any parameters passed to the function.  
+ * @return None.
+ */
+void triggerTask(void*pvParameters){
 
-void restartTask(void*pvParameters){
     char c = 'p';
     for (;;) {
         
@@ -95,15 +110,52 @@ void restartTask(void*pvParameters){
             //Send to Queue
             xQueueSendToBack(experimentQueue, &c, portMAX_DELAY);
         }
+        if (c == 'f') {
+            printf("Quick Experiment - Forward\n");
+
+            // Delay for a short period to allow any pending tasks to complete.
+            vTaskDelay(100 / portTICK_PERIOD_MS);
+            
+            // Run Motor
+            
+            int Mot_err = RunMotor(1,TICKS_PER_REV); 
+            printf("Restart task ERR : %d\n" , Mot_err );
+        
+
+            // Read 2 ADC 
+            ADC_Read(ADC_ADDR_1);
+            ADC_Read(ADC_ADDR_2);
+
+
+            //Send to Queue
+            xQueueSendToBack(experimentQueue, &c, portMAX_DELAY);
+        }
+        if (c == 'b') {
+            printf("Quick Experiment - Backward\n");
+
+            // Delay for a short period to allow any pending tasks to complete.
+            vTaskDelay(100 / portTICK_PERIOD_MS);
+            
+            // Run Motor
+            
+            int Mot_err = RunMotor(0,TICKS_PER_REV); 
+            printf("Restart task ERR : %d\n" , Mot_err );
+        
+
+            // Read 2 ADC 
+            ADC_Read(ADC_ADDR_1);
+            ADC_Read(ADC_ADDR_2);
+
+
+            //Send to Queue
+            xQueueSendToBack(experimentQueue, &c, portMAX_DELAY);
+        }
 
         //Time Delay
         vTaskDelay(10/portTICK_PERIOD_MS); 
     }
-
-
 }
-
-
+  
 
 //___________________________________________APP__MAIN_______________________________________________
 
@@ -117,23 +169,34 @@ void app_main(void)
         esp_restart();
     }
 
-    //[Software Setup]
-    print_check();
-    ADC_Pwr(1);     //Power the lads
-    I2C_Init();     //Init dem comms
-    I2C_Scan();     //Scan for I2C devices on the bus
+    ////Hardware Takeover
+    printf("Setting the gpios externally without the masks\n");
 
+    //set pins correctly to inputs and outs 
+    gpio_set_direction(MVEN, GPIO_MODE_OUTPUT);
+    gpio_set_direction(MSLEEP, GPIO_MODE_OUTPUT);
+    gpio_set_direction(MOTSTEP, GPIO_MODE_OUTPUT);
+    gpio_set_direction(MOTDIR, GPIO_MODE_OUTPUT);
+
+    //[Software Setup]
+ 
+    ADC_Pwr(1);                 //Power the lads
+    I2C_Init();                 //Init dem comms
+    I2C_Scan();                 //Scan for I2C devices on the bus
+    
     experimentQueue = xQueueCreate( QUEUE_LENGTH, ITEM_SIZE );
 
     //[Task Creation]
     xTaskCreatePinnedToCore(hwWDPulseTask, /*Task Name*/ "HWWATCHDOG", /*stackdepth*/ 1024, /*pvParameters*/ NULL,  /*Priority*/ 1, /*ret handel*/NULL, /*core*/0);                
-    xTaskCreatePinnedToCore(experimentTask,"Experiment",4048,NULL,2,NULL,0);
-    xTaskCreatePinnedToCore(restartTask,"Restart",1024,NULL,1,NULL,0);
-
+    xTaskCreatePinnedToCore(experimentTask,"Experiment",8096,NULL,2,NULL,0);
+    xTaskCreatePinnedToCore(triggerTask,"Trigger",8096,NULL,1, NULL ,0);
 
     for(;;){  
         vTaskDelay(1000/portTICK_PERIOD_MS); // do nothing in the main loop 
     }
+
+
+    
 
 }
 
