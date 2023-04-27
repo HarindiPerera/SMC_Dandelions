@@ -93,6 +93,8 @@ void ADC_Pwr(bool en){
         printf("ADC:    ADC's powered OFF.\n");
     }
     
+
+    //If 1 down , non crit , if 2 then fail
 }
 
 /**
@@ -110,8 +112,10 @@ void I2C_Init(void)
     conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
     conf.master.clk_speed = I2C_MASTER_FREQ_HZ;              //set clock speed to 100kHz
 
-    i2c_param_config(I2C_MASTER_NUM , &conf);
-    i2c_driver_install(I2C_MASTER_NUM,conf.mode, 0,0,0 );    //install the driver
+    i2c_param_config(I2C_MASTER_NUM , &conf);                // ESPOK - CRIT
+
+
+    i2c_driver_install(I2C_MASTER_NUM,conf.mode, 0,0,0 );    //install the driver , ESPOK - CRIT
     printf("ADC:    I2C Master Initialised\n");
 }
 
@@ -134,6 +138,8 @@ void I2C_Scan()
             i2c_addresses[num_devices++] = i;
         }
     }
+
+    //NON CRIT IF ONLY 1 ADDRESS FOUND
     printf("ADC:    Found %d I2C devices:\n", num_devices);
     for (int i = 0; i < num_devices; i++) {
         printf("- 0x%02X\n", i2c_addresses[i]);
@@ -184,6 +190,8 @@ void buf_to_int(uint8_t* buffer, int size){
         }
         printf("Channel %d, ADC Value: %hd\n" ,i , value);
     }
+
+    //SIZE < 1MILLI 
 }
 
 /*For the MCP3424 adc chip , create a device connection test function that can follow the following steps :
@@ -217,6 +225,9 @@ c. Send STOP or START bit.*/
  */
 void ADC_Read(uint8_t address)
 {
+
+    //ASSESS I2C FUNCTIONS AND THEIR PREEXISTING RETURN VALUES
+
     //CHANNEL INIT
     //uint8_t ADC_CH[] = { 0x80, 0xA0, 0xC0, 0xE0 };
     uint8_t ADC_CH[] = { 0x80, 0x88, 0x90, 0x98 };
@@ -272,7 +283,7 @@ void EnMotor(bool en){
     gpio_set_level(MVEN,en);                // 1 = on,  0 = off
     gpio_set_level(MSLEEP,en);              // 1 = wake,0 = sleep
 
-
+    //CRIT 
     printf("EnMotor state : %d\n" , en);    //Print state
 }
 
@@ -296,7 +307,7 @@ int RunMotor(bool dir, int ticks){
     esp_err_t err = ESP_OK;                     
     if(gpio_set_level(MOTDIR,dir)!=ESP_OK){
         printf("ERROR: Error in setting the motor direction");
-        return HW_FAULT;                       
+        return HW_FAULT;            //NON CRIT - TRY AGAIN HIGHER LEVEL                      
     }
 
     //Set motstep high and low for ticks amount
@@ -309,14 +320,14 @@ int RunMotor(bool dir, int ticks){
          // Returns fault if unable to toggle MOTSTEP pin
         if(err!=ESP_OK){
             printf("ERROR: Error in setting toggeling the MOTSTEP pin. Breaking from loop.\n");
-            return HW_FAULT;                   
+            return HW_FAULT;        //NON CRIT - TRY AGAIN HIGHER LEVEL                  
         }  
     }
 
     //Disable the Motor
     EnMotor(0);
 
-    return SUCCESS;                             // ELSE return success after motor has been pulsed 'ticks' number of times. 
+    return SUCCESS;                             // RET ESPOK
 }
 
 /**
@@ -325,7 +336,7 @@ int RunMotor(bool dir, int ticks){
 *@return Returns the updated experiment count on success, -1 on failure.
 */
 int updateExperimentCount(bool erase){
-
+    //NON CRIT
     //printf("Opening Non-Volatile Storage (NVS) handle... ");
     nvs_handle_t my_handle;
     esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
