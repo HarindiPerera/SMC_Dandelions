@@ -20,6 +20,23 @@
 #include "driver/i2c.h"
 #include <inttypes.h>
 
+static const GPIO_Pins faultIndicators[] = {
+    {FFAULT, "FFAULT"},
+    {MFAULT, "MFAULT"},
+    {ADCLPWR, "ADCLPWR"},
+    {ADCRPWR, "ADCRPWR"},
+};
+
+static const GPIO_Pins healthCheck[] = {
+    {MSLEEP,"MSLEEP"},
+    {MVEN, "MVEN"},
+    {MOTEN,"MOTEN"},
+    {FFAULT, "FFAULT"},
+    {MFAULT, "MFAULT"},
+    {ADCLPWR, "ADCLPWR"},
+    {ADCRPWR, "ADCRPWR"},
+};
+
 
 /**
  *@brief prints a message to the console
@@ -31,14 +48,12 @@ void print_check(void)
     printf("Print check\n");
 }
 
-
 /**
  *@brief Configures GPIO pins for input and output
  *This function initializes GPIO pins for input and output as specified by theioConfig parameter. The outputs are configured with no interrupts enabled,
 set as outputs with a defined output bit mask, and with pulldown mode enabled
 and pullup mode disabled.
-*@return [gpio_config_t] Returns ESP_OK on success, otherwise an error code indicating
-the cause of the failure.
+*@return gpio_config_t : 'ESP_OK' if all sucessfull, else, it returns 'ESP_NONCRITICAL'.
  */
 esp_err_t setupHW(void){
 
@@ -52,58 +67,108 @@ esp_err_t setupHW(void){
     ioConfig.pull_down_en = 1;                  // Enable pulldown mode
     ioConfig.pull_up_en  = 0;                   // disable pullup mode. 
     rtn = gpio_config(&ioConfig);               // commit these output configuations.
-
-    // check to make sure that all was fine. 
-    if(rtn != ESP_OK ){
-        printf("FUNC-> setupHW()-> ERROR: " );
-        printf(esp_err_to_name(rtn));
-        printf("\n");
-        return rtn;
+    if(rtn != ESP_OK){
+        if(DEBUG){
+            printf("setupHW: setup output Fail\n");
+        }else{
+            logError("setupHW: setup output Fail\n");
+        }
+        return ESP_NONCRITICAL;
     }
+    // Set up the inputs 
     ioConfig.intr_type = GPIO_INTR_DISABLE;     // This might chage in the future
     ioConfig.pin_bit_mask = INPUT_BIT_MASK;     // Defined in DandSMC.h
     ioConfig.mode = GPIO_MODE_INPUT;            // Set to inputs
     ioConfig.pull_down_en = 1;                  // enable pull down
     ioConfig.pull_up_en = 0;                    // disable pull up
-
-
-    return gpio_config(&ioConfig);
+    rtn = gpio_config(&ioConfig);
+    if(rtn != ESP_OK){
+        if(DEBUG){
+            printf("setupHW: setup input Fail\n");
+        }else{
+            logError("setupHW: setup input Fail\n");
+        }
+        return ESP_NONCRITICAL;
+    }
+    // Set up the inputs/Outputs
+    ioConfig.intr_type = GPIO_INTR_DISABLE;     // This might chage in the future
+    ioConfig.pin_bit_mask = INPUT_BIT_MASK;     // Defined in DandSMC.h
+    ioConfig.mode = GPIO_MODE_INPUT_OUTPUT;            // Set to inputs
+    ioConfig.pull_down_en = 1;                  // enable pull down
+    ioConfig.pull_up_en = 0;                    // disable pull up
+    rtn = gpio_config(&ioConfig);
+    if(rtn != ESP_OK){
+        if(DEBUG){
+            printf("setupHW: setup in/out Fail\n");
+        }else{
+            logError("setupHW: setup in/out Fail\n");
+        }
+        return ESP_NONCRITICAL;
+    }
+    return ESP_OK;
 }
 
 /**
  * @brief Powers GPIO's for ADC
  * @param[in] en Boolean 1 = power on and 0 = power off
- * @return None
+ * @return esp_err_t ESP_FAIL if both ADC's fail. 
+ * ESP_NONCRITICAL on single fail.
+ * ESP_OK on sucess.
  */
-void ADC_Pwr(bool en){
+esp_err_t ADC_Pwr(bool en){
 
-
-    //setting pins as output for ADC
-    gpio_set_direction(ADCLPWR, GPIO_MODE_OUTPUT);
-    gpio_set_direction(ADCRPWR, GPIO_MODE_OUTPUT);
-    printf("ADC:    ADC's Pins set to outputs\n");
+    esp_err_t ADCRCheck, ADCLCheck;
 
     //set ADC pins as high
-    gpio_set_level(ADCLPWR, en);
-    gpio_set_level(ADCRPWR, en);
-    if(en) {    
-        printf("ADC:    ADC's powered ON.\n");
-    } 
-    else{
-        printf("ADC:    ADC's powered OFF.\n");
-    }
-    
+    ADCLCheck = gpio_set_level(ADCLPWR, en);
+    ADCRCheck = gpio_set_level(ADCRPWR, en);
 
-    //If 1 down , non crit , if 2 then fail
+    if (ADCLCheck != ESP_OK && ADCRCheck != ESP_OK){
+        if(DEBUG){
+            printf("ADC_Pwr(): both gpio_set_level() fail - ESP_FAIL\n");
+        }else{
+            logError("ADC_Pwr(): both gpio_set_level() fail - ESP_FAIL\n");
+        }
+        return ESP_FAIL;        // Both are not ok = Critical 
+
+    }else if (ADCLCheck != ESP_OK){
+        if(DEBUG){
+            printf("ADC_Pwr(): Left gpio_set_level() fail- ESP_NONCRITICAL\n");
+        }else{
+            logError("ADC_Pwr(): Left gpio_set_level() fail - ESP_NONCRITICAL\n");
+        }
+        return ESP_NONCRITICAL;    
+
+    } else if (ADCRCheck != ESP_OK){
+        if(DEBUG){
+            printf("ADC_Pwr(): Right gpio_set_level() fail - ESP_NONCRITICAL\n");
+        }else{
+            logError("ADC_Pwr(): Right gpio_set_level() fail - ESP_NONCRITICAL\n");
+        }
+        return ESP_NONCRITICAL;
+    }
+    // Nominal exit
+    if(DEBUG){
+        printf("ADC_Pwr(): Both success - ESP_OK\n");
+    }else{
+        logError("ADC_Pwr(): Both success - ESP_OK\n");
+    }
+
+    return ESP_OK;
 }
 
 /**
  * @brief Initialise I2C Comms on ESP32
  *This function initialises the master with the specified config params
- * @return None
+ * @return esp_err_t 
+ * ESP_FAIL if i2c_param_config or i2c_driver_install, else
+ * ESP_NONCRITICAL if only one other devices is found
+ *
+ * ESP_OK.
  */
-void I2C_Init(void)
+esp_err_t I2C_Init(void)
 {
+    esp_err_t rtn; 
     i2c_config_t conf;
     conf.mode = I2C_MODE_MASTER;                             //Set the I2C master mode
     conf.sda_io_num = I2C_SDA_PIN;                           //Assign the sda and scl pin numbers
@@ -112,26 +177,53 @@ void I2C_Init(void)
     conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
     conf.master.clk_speed = I2C_MASTER_FREQ_HZ;              //set clock speed to 100kHz
 
-    i2c_param_config(I2C_MASTER_NUM , &conf);                // ESPOK - CRIT
+    rtn = i2c_param_config(I2C_MASTER_NUM , &conf);                
+    if(rtn != ESP_OK){
+        if(DEBUG){
+            printf("I2C_Init(): i2c_param_config() - ESP_FAIL\n");
+        }else{
+            logError("I2C_Init(): i2c_param_config() - ESP_FAIL\n");
+        }
+        return ESP_FAIL;
+    }
 
+    rtn = i2c_driver_install(I2C_MASTER_NUM,conf.mode, 0,0,0 );    //install the driver , ESPOK - CRIT
+    if(rtn != ESP_OK){
+        if(DEBUG){
+            printf("I2C_Init(): i2c_driver_install() - ESP_FAIL\n");
+        }else{
+            logError("I2C_Init(): i2c_driver_install() - ESP_FAIL\n");
+        }
+        return ESP_FAIL;
+    }
 
-    i2c_driver_install(I2C_MASTER_NUM,conf.mode, 0,0,0 );    //install the driver , ESPOK - CRIT
-    printf("ADC:    I2C Master Initialised\n");
+    //printf("ADC:    I2C Master Initialised\n");
+    if(DEBUG){
+            printf("I2C_Init(): - ESP_OK\n");
+        }else{
+            logError("I2C_Init(): - ESP_OK\n");
+        }
+    return ESP_OK;
 }
 
 /**
  * @brief Looks for I2C devices over the bus and prints on console
- * @return None
+ * @return esp_err_t
+ * ESP_OK for nominal opperation
+ * ESP_FAIL for no devices found
+ * ESP_NONCRITICAL for one device found or issue with i2c write and read. 
+ * ESP_ERR_INVALID_RESPONSE there was an issue reading or writing to the i2c bus
  */
-void I2C_Scan()
+esp_err_t I2C_Scan()
 {
+    esp_err_t rtn = ESP_OK;
     uint8_t i2c_addresses[128];             //An array to hold the addresses
     int num_devices = 0;                    //Number of devices connected
     for (int i = 0; i < 128; i++) {
         i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-        i2c_master_start(cmd);
-        i2c_master_write_byte(cmd, i << 1 | I2C_MASTER_WRITE, true);
-        i2c_master_stop(cmd);
+        rtn += i2c_master_start(cmd);
+        rtn += i2c_master_write_byte(cmd, i << 1 | I2C_MASTER_WRITE, true);
+        rtn += i2c_master_stop(cmd);
         esp_err_t err = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 10 / portTICK_PERIOD_MS);
         i2c_cmd_link_delete(cmd);
         if (err == ESP_OK) {
@@ -139,20 +231,64 @@ void I2C_Scan()
         }
     }
 
-    //NON CRIT IF ONLY 1 ADDRESS FOUND
-    printf("ADC:    Found %d I2C devices:\n", num_devices);
-    for (int i = 0; i < num_devices; i++) {
-        printf("- 0x%02X\n", i2c_addresses[i]);
+    
+    if (DEBUG){
+        printf("I2C_Scan(): Found %d I2C devices:\n", num_devices);
+         for (int i = 0; i < num_devices; i++) {
+            printf("- 0x%02X\n", i2c_addresses[i]);
+        }
+    }else{
+        char str[32]; 
+        sprintf(str,"I2C_Scan(): Devices found : %d\n", num_devices);
+        logError(str);           
     }
 
+    if (rtn!= ESP_OK){
+        if(DEBUG){
+            printf("I2C_Scan(): Bad i2c RW - ESP_ERRINVALID_RESPONSE\n");
+        }else{
+            logError("I2C_Scan(): Bad i2c RW - ESP_ERRINVALID_RESPONSE\n");
+        }
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+
+    if (num_devices == 1){
+        if(DEBUG){
+            printf("I2C_Scan(): Only self found - ESP_FAIL\n");
+        }else{
+            logError("I2C_Scan(): Only self found - ESP_FAIL\n");
+        }
+        return ESP_FAIL;  
+    }
+
+    if (num_devices == 2){
+        if(DEBUG){
+                printf("I2C_Scan(): Only 1 other device found - ESP_NONCRITICAL\n");
+            }else{
+                logError("I2C_Scan(): Only 1 other device found - ESP_NONCRITICAL\n");
+        }
+        return ESP_NONCRITICAL;
+    }
+
+    // Nominal Exit
+    if(DEBUG){
+                printf("I2C_Scan(): All devices found - ESP_OK\n");
+            }else{
+                logError("I2C_Scan(): All devices found - ESP_OK\n");
+        }
+    return ESP_OK;
 }
 
 void Print_buffer(uint8_t* buf){
 
-    for (int i = 0; i < sizeof(buf); i++) {
-        printf("buf[%d] = 0x%02X\n", i, buf[i]);  
+    if(DEBUG){
+        for (int i = 0; i < sizeof(buf); i++) {
+            printf("buf[%d] = 0x%02X\n", i, buf[i]);  
+        }   
+    }else{
+        // TODO log buffer
     }
-    
+   
 }
 
 /**
@@ -181,17 +317,29 @@ void Print_buffer(uint8_t* buf){
     }
 }*/
 
-void buf_to_int(uint8_t* buffer, int size){
-    int16_t value;
-    for (int i = 0 ; i < size/2 ; i++) {
-        value = ((buffer[i*2] & 0x0F) << 8) | buffer[i*2+1];
-        if (value & 0x0800) {
-            value |= 0xF000;
+esp_err_t buf_to_int(uint8_t* buffer, int size){
+    esp_err_t rtn;
+    if (size < 1000) {                               // TODO: determine the max size of the buffer
+        int16_t value;
+        for (int i = 0 ; i < size/2 ; i++) {
+            value = ((buffer[i*2] & 0x0F) << 8) | buffer[i*2+1];
+            if (value & 0x0800) {
+                value |= 0xF000;
+            }
+            if(DEBUG) {printf("Channel %d, ADC Value: %hd\n" ,i , value);}
         }
-        printf("Channel %d, ADC Value: %hd\n" ,i , value);
+        rtn = ESP_OK;
+    }else{
+        // NONcritical error
+        if(DEBUG){
+            printf("buf_to_int(): NON_CRITICAL\n");
+        }else{
+            logError("buf_to_int(): NON_CRITICAL\n");
+        }
+        rtn = ESP_NONCRITICAL;
     }
 
-    //SIZE < 1MILLI 
+    return rtn;
 }
 
 /*For the MCP3424 adc chip , create a device connection test function that can follow the following steps :
@@ -210,7 +358,6 @@ device is connected, otherwise it is not
 connected.
 c. Send STOP or START bit.*/
 
-
 /**
  * @brief Reads ADC value over I2C.
  *This function sends a command over channel 0 to adc. Waits for 
@@ -223,11 +370,11 @@ c. Send STOP or START bit.*/
 • Continuous or one-shot conversion 
  * @return 16bit signed integer val
  */
-void ADC_Read(uint8_t address)
+esp_err_t ADC_Read(uint8_t address)
 {
 
     //ASSESS I2C FUNCTIONS AND THEIR PREEXISTING RETURN VALUES
-
+    esp_err_t rtn = ESP_OK;
     //CHANNEL INIT
     //uint8_t ADC_CH[] = { 0x80, 0xA0, 0xC0, 0xE0 };
     uint8_t ADC_CH[] = { 0x80, 0x88, 0x90, 0x98 };
@@ -240,34 +387,43 @@ void ADC_Read(uint8_t address)
 
     //I2C WRITE
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, address << 1 | I2C_MASTER_WRITE, true);
+    rtn |= (i2c_master_start(cmd)<<1);
+    rtn |= i2c_master_write_byte(cmd, address << 1 | I2C_MASTER_WRITE, true);
 
     //4 CHANNEL WRITE
     for (int j = 0 ; j < ch_size ; j++){
-        i2c_master_write_byte(cmd, ADC_CH[j], false);
+        rtn |= (i2c_master_write_byte(cmd, ADC_CH[j], false) << 1);
     }
 
-    i2c_master_stop(cmd);
+    rtn |= (i2c_master_stop(cmd)<<1);
 
     //I2C READ
-    i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, 1000 / portTICK_PERIOD_MS );
+    rtn |= (i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, 1000 / portTICK_PERIOD_MS )<<1);
     i2c_cmd_link_delete(cmd);
 
     vTaskDelay(SAMPLE_DELAY_MS / portTICK_PERIOD_MS);
 
     cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, address << 1 | I2C_MASTER_READ, true);
-    i2c_master_read(cmd, buf, buf_size, I2C_MASTER_LAST_NACK);
-    i2c_master_stop(cmd);
+    rtn |= (i2c_master_start(cmd)<<1);
+    rtn |= (i2c_master_write_byte(cmd, address << 1 | I2C_MASTER_READ, true)<<1);
+    rtn |= (i2c_master_read(cmd, buf, buf_size, I2C_MASTER_LAST_NACK)<<1);
+    rtn |= (i2c_master_stop(cmd)<<1);
 
-    i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, 1000 / portTICK_PERIOD_MS );
+    rtn |= (i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, 1000 / portTICK_PERIOD_MS )<<1);
     i2c_cmd_link_delete(cmd);
 
     //CONVERSION
     buf_to_int(buf, buf_size);
 
+    if (rtn != ESP_OK){
+        if(DEBUG){
+            printf("ADC__read(): I2C RW error - NON_CRITICAL\n");
+        }else{
+            logError("ADC__read(): I2C RW error - NON_CRITICAL\n");
+        }
+        return ESP_NONCRITICAL;
+    }
+    return ESP_OK;
 }
 
 /**
@@ -276,15 +432,30 @@ void ADC_Read(uint8_t address)
 This function sets the state of two GPIO pins to enable or disable the motor.
 @param[in] en Whether to enable (true) or disable (false) the motor.
 */
-void EnMotor(bool en){
-
+esp_err_t EnMotor(bool en){
     // This could probably have some error checking inplemented
-    gpio_set_level(MOTEN,!en);              // 1 = off, 0 = on
-    gpio_set_level(MVEN,en);                // 1 = on,  0 = off
-    gpio_set_level(MSLEEP,en);              // 1 = wake,0 = sleep
+    esp_err_t rtn = ESP_OK;
 
-    //CRIT 
-    printf("EnMotor state : %d\n" , en);    //Print state
+    rtn |= gpio_set_level(MOTEN,!en);              // 1 = off, 0 = on
+    rtn |= gpio_set_level(MVEN,en);                // 1 = on,  0 = off
+    rtn |= gpio_set_level(MSLEEP,en);              // 1 = wake,0 = sleep
+
+    if (rtn != ESP_OK){
+        if(DEBUG){
+            printf("EnMotor(): gpio_set_level() ESP_FAIL\n");
+        }else{
+            logError("EnMotor(): gpio_set_level() ESP_FAIL\n");
+        }
+        return ESP_FAIL;
+    }
+
+    if(DEBUG){
+            printf("EnMotor(): ESP_OK\n");
+    }else{
+        logError("EnMotor(): ESP_OK\n");
+    }
+    
+    return rtn;
 }
 
 /**
@@ -307,7 +478,7 @@ int RunMotor(bool dir, int ticks){
     esp_err_t err = ESP_OK;                     
     if(gpio_set_level(MOTDIR,dir)!=ESP_OK){
         printf("ERROR: Error in setting the motor direction");
-        return HW_FAULT;            //NON CRIT - TRY AGAIN HIGHER LEVEL                      
+        return ESP_FAIL;            //NON CRIT - TRY AGAIN HIGHER LEVEL                      
     }
 
     //Set motstep high and low for ticks amount
@@ -320,14 +491,14 @@ int RunMotor(bool dir, int ticks){
          // Returns fault if unable to toggle MOTSTEP pin
         if(err!=ESP_OK){
             printf("ERROR: Error in setting toggeling the MOTSTEP pin. Breaking from loop.\n");
-            return HW_FAULT;        //NON CRIT - TRY AGAIN HIGHER LEVEL                  
+            return ESP_FAIL;        //NON CRIT - TRY AGAIN HIGHER LEVEL                  
         }  
     }
 
     //Disable the Motor
     EnMotor(0);
 
-    return SUCCESS;                             // RET ESPOK
+    return ESP_OK;                             // RET ESPOK
 }
 
 /**
@@ -531,3 +702,7 @@ int RunExperiment(){
 
 }
 
+void logError(char* str){
+
+    // NOT IMPLEMENTED YET
+}

@@ -19,5 +19,6 @@
     "regex": "c",
     "utility": "c",
     "stdio.h": "c"
-  }
+  },
+  "cmake.configureOnEdit": false
 }
