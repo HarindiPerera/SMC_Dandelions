@@ -6,7 +6,6 @@
 // HARDWARE CONSTANTS
 #define TICKS_PER_REV 6000          // The number of ticks per revolution of our steper motor
 
-
 #define QUEUE_LENGTH    10              //changed from 10 to 20 
 #define ITEM_SIZE       sizeof(uint32_t)
 
@@ -41,6 +40,7 @@
 #define RW_LENGTH 129                           //Reg READ_WRITE len 
 
 #define SAMPLE_DELAY_MS 1000                    //delay between ADC samples in milliseconds
+#define WD_DELAY_MS 10
 
 // For these masks each bit coresponds to a gpio, bit 4 = gpio 4 ect
 #define OUTPUT_BIT_MASK 0b001100001110100000110000000000100000
@@ -53,34 +53,7 @@
 #define FORCE_QUIT -3
 #define HW_FAULT -4
 
-
-// Structure for quick pin itteration
-typedef struct {
-    int pin;
-    const char* name;
-}GPIO_Pins;
-
-// This is a constant structure of GPIO_Pins that relate specifically to the fault indicators
-static const GPIO_Pins faultIndicators[] = {
-    {FFAULT, "FFAULT"},
-    {MFAULT, "MFAULT"},
-    {ADCLPWR, "ADCLPWR"},
-    {ADCRPWR, "ADCRPWR"},
-};
-
-static const GPIO_Pins healthCheck[] = {
-    {MSLEEP,"MSLEEP"},
-    {MVEN, "MVEN"},
-    {MOTEN,"MOTEN"},
-    {FFAULT, "FFAULT"},
-    {MFAULT, "MFAULT"},
-    {ADCLPWR, "ADCLPWR"},
-    {ADCRPWR, "ADCRPWR"},
-};
-
-
 /*STRUCTS*/
-
 // Structure for quick pin itteration
 typedef struct {
     int pin;
@@ -104,8 +77,6 @@ static const GPIO_Pins healthCheck[] = {
     {ADCLPWR, "ADCLPWR"},
     {ADCRPWR, "ADCRPWR"},
 };
-
-
 
 // DANDELIONS FUNCTION PROTOYPES-  
 void print_check(void);                             //Prints a message to the console
