@@ -3,8 +3,10 @@
 
 #include "esp_err.h"
 
+
+#define DEBUG true                        // change this to change where messages go to
 // HARDWARE CONSTANTS
-#define TICKS_PER_REV 6000          // The number of ticks per revolution of our steper motor
+#define TICKS_PER_REV 12000          // The number of ticks per revolution of our steper motor
 
 #define QUEUE_LENGTH    10              //changed from 10 to 20 
 #define ITEM_SIZE       sizeof(uint32_t)
@@ -23,6 +25,14 @@
 #define I2C_SDA_PIN 21                          //ESP32 SDA 21  
 #define I2C_SCL_PIN 22                          //ESP32 SCL 22
 
+// GPIO ASSIGNMENT
+#define OUTPUT_BIT_MASK       0b000000000110100000000000000000000000
+#define INPUT_BIT_MASK        0b110000000000000000000000000000000000
+#define INPUT_OUTPUT_BIT_MASK 0b001100001000000000110000000000000000
+#define PU_MASK               0b110000000000011000000000000000000000
+#define PD_MASK               0b001100001110100000110000000000000000
+
+
 // I2C CONSTANTS
 #define I2C_MASTER_FREQ_HZ 100000
 #define I2C_MASTER_NUM I2C_NUM_0                //*I2C bus number on ESP32
@@ -30,8 +40,12 @@
 #define I2C_MASTER_RX_BUF_DISABLE  0            //i2c master does not need a buffer
 
                     
-#define ADC_ADDR_1 0x68                         //Device address 1101 | ADC1 : 100 |
-#define ADC_ADDR_2 0x69                         //Device address 1101 | ADC2 : 010 | 
+#define ADC_ADDR_1 0x6A                         //Device address 1101 | ADC1 : 100 |
+#define ADC_ADDR_2 0x6C                         //Device address 1101 | ADC2 : 010 |
+#define ADC_ADDR_3 0x68
+#define ADC_ADDR_4 0x69
+
+//uint8_t ADC_CH[] = {0X98 , 0XB8 , 0XD8 , 0XF8};
 
 #define ACK_EN 0x1                              //Master checks Ack enabled
 #define ACK_DIS 0x0                             //Master checks Ack disabled
@@ -41,10 +55,6 @@
 
 #define SAMPLE_DELAY_MS 1000                    //delay between ADC samples in milliseconds
 #define WD_DELAY_MS 10
-
-// For these masks each bit coresponds to a gpio, bit 4 = gpio 4 ect
-#define OUTPUT_BIT_MASK 0b001100001110100000110000000000100000
-#define INPUT_BIT_MASK  0xC0E000000
 
 // DANDELIONS ERROR CODES
 #define SUCCESS 1
@@ -102,5 +112,8 @@ void systemHealthCheck(void);
 void calibrate(void);
 void PollFaultIndicatorsTask(void* pvParamemters);
 int RunExperiment(void);
+
+void logError(const char* str);
+void logData(const char* info);
 
 #endif

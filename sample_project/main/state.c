@@ -26,6 +26,11 @@ void state_machine() {
         switch (current_state) {
             case BOOT:
                 printf("System is in boot mode.\n");
+
+                printf("System waits for 2 seconds.\n");
+                //wait 2 seconds and moves to idle
+                vTaskDelay(2000 / portTICK_PERIOD_MS);
+
                 current_state = IDLE;
                 break;
 

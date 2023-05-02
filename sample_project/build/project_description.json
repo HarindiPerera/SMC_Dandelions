@@ -6,7 +6,7 @@
     "config_defaults":    "",
     "app_elf":            "main.elf",
     "app_bin":            "main.bin",
-    "git_revision":       "v5.0",
+    "git_revision":       "v5.0-dirty",
     "target":             "esp32",
     "rev":                "0",
     "phy_data_partition": "",

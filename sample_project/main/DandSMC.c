@@ -19,6 +19,8 @@
 #include "driver/gptimer.h"
 #include "driver/i2c.h"
 #include <inttypes.h>
+#include <errno.h>
+
 
 
 /**
@@ -32,13 +34,13 @@ void print_check(void)
 }
 
 
+
 /**
  *@brief Configures GPIO pins for input and output
  *This function initializes GPIO pins for input and output as specified by theioConfig parameter. The outputs are configured with no interrupts enabled,
 set as outputs with a defined output bit mask, and with pulldown mode enabled
 and pullup mode disabled.
-*@return [gpio_config_t] Returns ESP_OK on success, otherwise an error code indicating
-the cause of the failure.
+*@return gpio_config_t : 'ESP_OK' if all sucessfull, else, it returns 'ESP_NONCRITICAL'.
  */
 esp_err_t setupHW(void){
 
@@ -52,23 +54,47 @@ esp_err_t setupHW(void){
     ioConfig.pull_down_en = 1;                  // Enable pulldown mode
     ioConfig.pull_up_en  = 0;                   // disable pullup mode. 
     rtn = gpio_config(&ioConfig);               // commit these output configuations.
-
-    // check to make sure that all was fine. 
-    if(rtn != ESP_OK ){
-        printf("FUNC-> setupHW()-> ERROR: " );
-        printf(esp_err_to_name(rtn));
-        printf("\n");
-        return rtn;
+    if(rtn != ESP_OK){
+        if(DEBUG){
+            printf("setupHW: setup output Fail\n");
+        }else{
+            logError("setupHW: setup output Fail\n");
+        }
+        return ESP_NONCRITICAL;
     }
+    // Set up the inputs 
     ioConfig.intr_type = GPIO_INTR_DISABLE;     // This might chage in the future
     ioConfig.pin_bit_mask = INPUT_BIT_MASK;     // Defined in DandSMC.h
     ioConfig.mode = GPIO_MODE_INPUT;            // Set to inputs
     ioConfig.pull_down_en = 1;                  // enable pull down
     ioConfig.pull_up_en = 0;                    // disable pull up
-
-
-    return gpio_config(&ioConfig);
+    rtn = gpio_config(&ioConfig);
+    if(rtn != ESP_OK){
+        if(DEBUG){
+            printf("setupHW: setup input Fail\n");
+        }else{
+            logError("setupHW: setup input Fail\n");
+        }
+        return ESP_NONCRITICAL;
+    }
+    // Set up the inputs/Outputs
+    ioConfig.intr_type = GPIO_INTR_DISABLE;     // This might chage in the future
+    ioConfig.pin_bit_mask = INPUT_OUTPUT_BIT_MASK;     // Defined in DandSMC.h
+    ioConfig.mode = GPIO_MODE_INPUT_OUTPUT;            // Set to inputs
+    ioConfig.pull_down_en = 1;                  // enable pull down
+    ioConfig.pull_up_en = 0;                    // disable pull up
+    rtn = gpio_config(&ioConfig);
+    if(rtn != ESP_OK){
+        if(DEBUG){
+            printf("setupHW: setup in/out Fail\n");
+        }else{
+            logError("setupHW: setup in/out Fail\n");
+        }
+        return ESP_NONCRITICAL;
+    }
+    return ESP_OK;
 }
+
 
 /**
  * @brief Powers GPIO's for ADC
@@ -77,11 +103,6 @@ esp_err_t setupHW(void){
  */
 void ADC_Pwr(bool en){
 
-
-    //setting pins as output for ADC
-    gpio_set_direction(ADCLPWR, GPIO_MODE_OUTPUT);
-    gpio_set_direction(ADCRPWR, GPIO_MODE_OUTPUT);
-    printf("ADC:    ADC's Pins set to outputs\n");
 
     //set ADC pins as high
     gpio_set_level(ADCLPWR, en);
@@ -111,9 +132,7 @@ void I2C_Init(void)
     conf.sda_pullup_en = GPIO_PULLUP_ENABLE;                 //enable pullups but may need removal since we hw implemented this
     conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
     conf.master.clk_speed = I2C_MASTER_FREQ_HZ;              //set clock speed to 100kHz
-
     i2c_param_config(I2C_MASTER_NUM , &conf);                // ESPOK - CRIT
-
 
     i2c_driver_install(I2C_MASTER_NUM,conf.mode, 0,0,0 );    //install the driver , ESPOK - CRIT
     printf("ADC:    I2C Master Initialised\n");
@@ -221,20 +240,17 @@ c. Send STOP or START bit.*/
 • Input channel selection: CH1 , CH2 , CH3 , or CH4
 • PGA Gain selection: x1, x2, x4, or x8
 • Continuous or one-shot conversion 
- * @return 16bit signed integer val
+ * @return 18bit signed integer values
  */
 void ADC_Read(uint8_t address)
 {
 
-    //ASSESS I2C FUNCTIONS AND THEIR PREEXISTING RETURN VALUES
-
-    //CHANNEL INIT
-    //uint8_t ADC_CH[] = { 0x80, 0xA0, 0xC0, 0xE0 };
-    uint8_t ADC_CH[] = { 0x80, 0x88, 0x90, 0x98 };
+    //18 bit CHANNEL INIT
+    uint8_t ADC_CH[] = {0X8F , 0XAF , 0XCF , 0XEF};
     int ch_size = sizeof(ADC_CH)/sizeof(ADC_CH[0]);
 
     //BUFFER INIT
-    uint8_t buf[8];
+    uint8_t buf[18];
     int buf_size = sizeof(buf)/sizeof(buf[0]);
     memset(buf , 0 ,buf_size);                      //zeros all values in buffer
 
@@ -245,30 +261,32 @@ void ADC_Read(uint8_t address)
 
     //4 CHANNEL WRITE
     for (int j = 0 ; j < ch_size ; j++){
-        i2c_master_write_byte(cmd, ADC_CH[j], false);
+        i2c_master_write_byte(cmd, ADC_CH[j], false); 
     }
-
     i2c_master_stop(cmd);
 
-    //I2C READ
+    //Implement I2C Comms
     i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, 1000 / portTICK_PERIOD_MS );
     i2c_cmd_link_delete(cmd);
-
     vTaskDelay(SAMPLE_DELAY_MS / portTICK_PERIOD_MS);
 
+    //I2C READ
     cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
     i2c_master_write_byte(cmd, address << 1 | I2C_MASTER_READ, true);
     i2c_master_read(cmd, buf, buf_size, I2C_MASTER_LAST_NACK);
     i2c_master_stop(cmd);
 
+    //Implement I2C Comms
     i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, 1000 / portTICK_PERIOD_MS );
     i2c_cmd_link_delete(cmd);
 
-    //CONVERSION
-    buf_to_int(buf, buf_size);
+    //PRINT
+    Print_buffer(buf);
 
 }
+
+
 
 /**
 
@@ -317,11 +335,16 @@ int RunMotor(bool dir, int ticks){
         err = gpio_set_level(MOTSTEP,0);
         vTaskDelay(10/portTICK_PERIOD_MS);
 
+        if (ticks == 6000){
+            printf("I've done a rev");
+        }
          // Returns fault if unable to toggle MOTSTEP pin
         if(err!=ESP_OK){
             printf("ERROR: Error in setting toggeling the MOTSTEP pin. Breaking from loop.\n");
             return HW_FAULT;        //NON CRIT - TRY AGAIN HIGHER LEVEL                  
-        }  
+        } 
+
+         
     }
 
     //Disable the Motor
@@ -530,4 +553,59 @@ int RunExperiment(){
     return 1;                               // [TODO]
 
 }
+
+void logError(const char* info)
+{
+
+    //Not Implemented
+}
+
+/**
+
+@brief Logs the given information to a 2d array and prints the entire array.
+@param info The information to be logged.
+*/
+void logData(const char* info){
+
+    // create a 2D array with 100 rows and 100 columns each
+    static char dataArray[100][100]; 
+
+    //Last position tracking variable
+    static int lastPosition = 0; 
+    
+    //Find lenght of new string
+    int len = strlen(info);
+
+    //Move to next row if row is complete
+    if (lastPosition + len + 1 > 100) { 
+        lastPosition = 0; 
+    }
+
+    //Space as seperator
+    dataArray[lastPosition][0] = ' ';
+
+    //Append info and increment last position by size of info + space
+    strcpy(&dataArray[lastPosition][1], info); 
+    lastPosition += len + 1; 
+    
+    //print out array
+    for (int i = 0; i <= lastPosition; i++) {
+        printf("%s", dataArray[i]);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

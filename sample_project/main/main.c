@@ -148,6 +148,23 @@ void triggerTask(void*pvParameters){
             //Send to Queue
             xQueueSendToBack(experimentQueue, &c, portMAX_DELAY);
         }
+        if (c == 'e') {
+            printf("Quick Experiment - Read ADC\n");
+
+            // Delay for a short period to allow any pending tasks to complete.
+            vTaskDelay(100 / portTICK_PERIOD_MS);
+            
+               
+            // Read 2 ADC 
+            ADC_Read(ADC_ADDR_3);
+            ADC_Read(ADC_ADDR_4);
+
+            //Log Stuff
+            logData("Log\n");
+
+            //Send to Queue
+            xQueueSendToBack(experimentQueue, &c, portMAX_DELAY);
+        }
 
         //Time Delay
         vTaskDelay(10/portTICK_PERIOD_MS); 
