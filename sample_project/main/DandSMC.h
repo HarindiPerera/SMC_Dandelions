@@ -31,6 +31,7 @@
 #define OUTPUT_BIT_MASK       0b000000000110100000000000000000000000
 #define INPUT_BIT_MASK        0b110000000000000000000000000000000000
 #define INPUT_OUTPUT_BIT_MASK 0b001100001000000000110000000000000000
+// Pull Up and Pull down masks
 #define PU_MASK               0b110000000000011000000000000000000000
 #define PD_MASK               0b001100001110100000110000000000000000
 
@@ -61,9 +62,9 @@ typedef struct {
 
 
 
-// DANDELIONS FUNCTION PROTOYPES-  
-void print_check(void);                             //Prints a message to the console
-esp_err_t setupHW(void);                            //Configures all the gpio/direction/pullmode/intr status
+// DANDELIONS FUNCTION PROTOYPES
+void print_check(void);                 //Prints a message to the console
+esp_err_t setupHW(void);                //Configures all the gpio/direction/pullmode/intr status
 
 esp_err_t ADC_Pwr(bool en);
 esp_err_t I2C_Init(void);
@@ -73,19 +74,27 @@ esp_err_t buf_to_int(uint8_t* buffer,  int size);        //Converts a buffer of 
 esp_err_t ADC_Read(uint8_t address);
 
 esp_err_t EnMotor(bool en);                              //Enables the motor
-int RunMotor(bool dir, int ticks);                  //Runs a stepper motor for a specified number of steps in a specified direction.
+esp_err_t RunMotor(bool dir, int *ticks);                //Runs a stepper motor for a specified number of steps in a specified direction.
 
-int updateExperimentCount(bool erase);
-void checkGPIOS(void);
-void checkMem(void);
-void checkADC(void);
-void checkCANctrl(void);
+esp_err_t getExperimentPhaseTick(int *phase, int*tick);      // For nominal these should be 0 and 0 but on an emergency they store the position of the motor. 
 
-void systemHealthCheck(void);
-void calibrate(void);
+
+
+
+esp_err_t checkGPIOS(void);
+esp_err_t checkMem(void);
+esp_err_t checkCANctrl(void);
+
+esp_err_t systemHealthCheck(void);
+esp_err_t calibrate(void);
 void PollFaultIndicatorsTask(void* pvParamemters);
-int RunExperiment(void);
+esp_err_t RunExperiment(int *phase, int* tick);         // input arguments are pointers to variabels that are saved in NVS in case of Emergency shut down. 
 
-void logError(char* str);         // not yet implemented 
+void logError(char* str);         
+
+esp_err_t updateExperimentCount(bool erase, int *count);      // going to edit this to take a pointer to be edited, so that the return type is not an int. 
+esp_err_t neutralise(int *phase, int *tick);
+esp_err_t setExperimentPhaseTicks(int *phase, int *ticks, bool reset);
+esp_err_t getExerpimentPhaseTicks(int *phase, int* ticks);
 
 #endif

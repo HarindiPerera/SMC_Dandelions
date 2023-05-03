@@ -18,8 +18,7 @@
 #include <inttypes.h>
 #include "state.h"
 
-//QUEUE
-QueueHandle_t experimentQueue = NULL;
+
 
 /**
  * @brief Task to feed the hardware watchdog every 5 seconds.
@@ -34,126 +33,20 @@ QueueHandle_t experimentQueue = NULL;
  */
 void hwWDPulseTask(void* pvParamemters){
 
-    //Queue Info
-    char c = 'p';
-
     //Infinite Loop
     for(;;){
 
-        printf("Watchdog fed\n");
-
+        //rprintf("WD.\n");
         gpio_set_level(WDI,1);                              // Set the HW_watchdog high
         vTaskDelay(WD_DELAY_MS/portTICK_PERIOD_MS);         // settling time
         gpio_set_level(WDI,0);                              // Set the HW_watchdog low
         vTaskDelay(5000/portTICK_PERIOD_MS);                // Control back to scheduler
-
-        //Send to Queue
-        xQueueSend(experimentQueue, &c, portMAX_DELAY);
     }
 
     vTaskDelete(NULL);                                                          // delete task if it breaks for some reason
     printf("CRITICAL ERROR: hwWDPulseTask broke from loop. Task Deleted\n");    // error msg
 }
 
-void experimentTask(void*pvParameters){
-
-    BaseType_t xStatus;
-    //Queue Info
-    char c  = 'p'; 
-
-    for(;;){
-        //printf("the Experiment task is blocked after the line\n");
-        xStatus = xQueueReceive(experimentQueue, &c, portMAX_DELAY);        //Blocking function    
-        if (xStatus == pdPASS){
-            
-            //printf("RUN:    Data received from the queue is : %c\n",c);     //Successful data recieved from queue
-
-            printf("Experiment task: Start of Experiment\n\n");
-
-            printf("REMOVED FOR NOW\n");
-        }
-        else{
-            printf("RUN:    Data cannot be read through queue");
-        }
-        //Time Delay
-        vTaskDelay(10/portTICK_PERIOD_MS); 
-    }
-
-}
-
-/**
- * @brief Task to handle triggering of experiments based on input received from the user.
- * 
- * This task listens for input from the user via the serial console and performs
- * experiments based on the input received. The experiments include restarting the ESP32,
- * running the motor in the forward or backward direction, and reading two ADC values
- * @param pvParamemters A pointer to any parameters passed to the function.  
- * @return None.
- */
-void triggerTask(void*pvParameters){
-
-    char c = 'p';
-    for (;;) {
-        
-        c = getchar();
-        if (c == 'r') {
-            printf("Restarting ESP32...\n");
-
-            // Delay for a short period to allow any pending tasks to complete.
-            vTaskDelay(100 / portTICK_PERIOD_MS);
-
-            // Restart the ESP32 
-            esp_restart();
-
-            //Send to Queue
-            xQueueSendToBack(experimentQueue, &c, portMAX_DELAY);
-        }
-        if (c == 'f') {
-            printf("Quick Experiment - Forward\n");
-
-            // Delay for a short period to allow any pending tasks to complete.
-            vTaskDelay(100 / portTICK_PERIOD_MS);
-            
-            // Run Motor
-            
-            int Mot_err = RunMotor(1,TICKS_PER_REV); 
-            printf("Restart task ERR : %d\n" , Mot_err );
-        
-
-            // Read 2 ADC 
-            ADC_Read(ADC_ADDR_1);
-            ADC_Read(ADC_ADDR_2);
-
-
-            //Send to Queue
-            xQueueSendToBack(experimentQueue, &c, portMAX_DELAY);
-        }
-        if (c == 'b') {
-            printf("Quick Experiment - Backward\n");
-
-            // Delay for a short period to allow any pending tasks to complete.
-            vTaskDelay(100 / portTICK_PERIOD_MS);
-            
-            // Run Motor
-            
-            int Mot_err = RunMotor(0,TICKS_PER_REV); 
-            printf("Restart task ERR : %d\n" , Mot_err );
-        
-
-            // Read 2 ADC 
-            ADC_Read(ADC_ADDR_1);
-            ADC_Read(ADC_ADDR_2);
-
-
-            //Send to Queue
-            xQueueSendToBack(experimentQueue, &c, portMAX_DELAY);
-        }
-
-        //Time Delay
-        vTaskDelay(10/portTICK_PERIOD_MS); 
-    }
-}
-  
 
 //___________________________________________APP__MAIN_______________________________________________
 
@@ -166,7 +59,7 @@ void app_main(void)
         NULL,           /*pvParameters*/
         16,             /*Priority*/
         NULL,           /*ret handel*/
-        0               /*core*/
+        1               /*core*/
     );                
 
     // initilise nvr partition
@@ -187,30 +80,42 @@ void app_main(void)
         esp_restart();
     }
 
-    ////Hardware Takeover
-    printf("Setting the gpios externally without the masks\n");
+    I2C_Init();
 
-    //set pins correctly to inputs and outs 
-    gpio_set_direction(MVEN, GPIO_MODE_OUTPUT);
-    gpio_set_direction(MSLEEP, GPIO_MODE_OUTPUT);
-    gpio_set_direction(MOTSTEP, GPIO_MODE_OUTPUT);
-    gpio_set_direction(MOTDIR, GPIO_MODE_OUTPUT);
 
-    //[Software Setup]
- 
-    ADC_Pwr(1);                 //Power the lads
-    I2C_Init();                 //Init dem comms
-    I2C_Scan();                 //Scan for I2C devices on the bus
-    
-    experimentQueue = xQueueCreate( QUEUE_LENGTH, ITEM_SIZE );
-
-    //[Task Creation]
-    xTaskCreatePinnedToCore(hwWDPulseTask, /*Task Name*/ "HWWATCHDOG", /*stackdepth*/ 1024, /*pvParameters*/ NULL,  /*Priority*/ 1, /*ret handel*/NULL, /*core*/0);                
-    xTaskCreatePinnedToCore(experimentTask,"Experiment",8096,NULL,2,NULL,0);
-    xTaskCreatePinnedToCore(triggerTask,"Trigger",8096,NULL,1, NULL ,0);
+   // char c = '\n';
+    printf("R = Run experiment 8min approx\n");
+    int ticks = 0;
+    int phase = 0;
+    int experimentCount = 0;
 
     for(;;){  
-        vTaskDelay(1000/portTICK_PERIOD_MS); // do nothing in the main loop 
+        vTaskDelay(100/portTICK_PERIOD_MS); // do nothing in the main loop 
+        
+        // If r is pressed then run the experiment 
+        if( getchar() == 'r') {
+
+            getExerpimentPhaseTicks(&phase,&ticks);      // Check the previous phase and ticks 
+            if (phase !=0 || ticks !=0){
+                printf("main: Phase = %d, Tick = %d\n", phase,ticks);
+                neutralise(&phase,&ticks);              // if non-zero then neutralise and dont run experiment
+            }else{
+                RunExperiment(&phase, &ticks);          // else run the experiment
+            }
+            setExperimentPhaseTicks(&phase,&ticks,0);       // set the phase and ticks. 
+            
+            
+            EnMotor(0);         // Disable Motor After experiment regardless of how it exits
+            ADC_Pwr(0);         // Diable ADC Power Just in case 
+
+            updateExperimentCount(0,&experimentCount);
+
+        }else if(getchar() == 't'){
+            setExperimentPhaseTicks(&phase,&ticks,1);       // reset set the phase and tick in nvs to 0;
+            updateExperimentCount(1,&experimentCount);      // reset the experiment count in nvs to 0
+        }else if(getchar() == 'q'){
+            esp_restart();
+        }
     }
 
     

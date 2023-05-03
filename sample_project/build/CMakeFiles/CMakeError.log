@@ -1,0 +1,46 @@
+Detecting C compiler ABI info failed to compile with the following output:
+Change Dir: C:/Users/Public/SMC_Dandelions/sample_project/build/CMakeFiles/CMakeTmp
+
+Run Build Command(s):C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/amd64/MSBuild.exe cmTC_7a452.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:m && MSBuild version 17.3.1+2badb37d1 for .NET Framework
+  Microsoft (R) C/C++ Optimizing Compiler Version 19.33.31630 for x64
+  Copyright (C) Microsoft Corporation.  All rights reserved.
+  cl /c /W1 /WX- /diagnostics:column /O2 /D _MBCS /D "CMAKE_INTDIR=\"Debug\"" /Gm- /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_7a452.dir\Debug\\" /Fd"cmTC_7a452.dir\Debug\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue  -mlongcalls -Wno-frame-address "C:\Users\Public\tools\cmake\3.24.0\share\cmake-3.24\Modules\CMakeCCompilerABI.c"
+cl : command line  error D8021: invalid numeric argument '/Wno-frame-address' [C:\Users\Public\SMC_Dandelions\sample_project\build\CMakeFiles\CMakeTmp\cmTC_7a452.vcxproj]
+
+
+
+
+Determining if the C compiler works failed with the following output:
+Change Dir: C:/Users/Public/SMC_Dandelions/sample_project/build/CMakeFiles/CMakeTmp
+
+Run Build Command(s):C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/amd64/MSBuild.exe cmTC_6119d.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:m && MSBuild version 17.3.1+2badb37d1 for .NET Framework
+  Microsoft (R) C/C++ Optimizing Compiler Version 19.33.31630 for x64
+  Copyright (C) Microsoft Corporation.  All rights reserved.
+  cl /c /W1 /WX- /diagnostics:column /O2 /D _MBCS /D "CMAKE_INTDIR=\"Debug\"" /Gm- /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_6119d.dir\Debug\\" /Fd"cmTC_6119d.dir\Debug\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue  -mlongcalls -Wno-frame-address C:\Users\Public\SMC_Dandelions\sample_project\build\CMakeFiles\CMakeTmp\testCCompiler.c
+cl : command line  error D8021: invalid numeric argument '/Wno-frame-address' [C:\Users\Public\SMC_Dandelions\sample_project\build\CMakeFiles\CMakeTmp\cmTC_6119d.vcxproj]
+
+
+
+Detecting C compiler ABI info failed to compile with the following output:
+Change Dir: C:/Users/Public/SMC_Dandelions/sample_project/build/CMakeFiles/CMakeTmp
+
+Run Build Command(s):C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/amd64/MSBuild.exe cmTC_d109f.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:m && MSBuild version 17.3.1+2badb37d1 for .NET Framework
+  Microsoft (R) C/C++ Optimizing Compiler Version 19.33.31630 for x64
+  Copyright (C) Microsoft Corporation.  All rights reserved.
+  cl /c /W1 /WX- /diagnostics:column /O2 /D _MBCS /D "CMAKE_INTDIR=\"Debug\"" /Gm- /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_d109f.dir\Debug\\" /Fd"cmTC_d109f.dir\Debug\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue  -mlongcalls -Wno-frame-address "C:\Users\Public\tools\cmake\3.24.0\share\cmake-3.24\Modules\CMakeCCompilerABI.c"
+cl : command line  error D8021: invalid numeric argument '/Wno-frame-address' [C:\Users\Public\SMC_Dandelions\sample_project\build\CMakeFiles\CMakeTmp\cmTC_d109f.vcxproj]
+
+
+
+
+Determining if the C compiler works failed with the following output:
+Change Dir: C:/Users/Public/SMC_Dandelions/sample_project/build/CMakeFiles/CMakeTmp
+
+Run Build Command(s):C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/amd64/MSBuild.exe cmTC_82ac3.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:m && MSBuild version 17.3.1+2badb37d1 for .NET Framework
+  Microsoft (R) C/C++ Optimizing Compiler Version 19.33.31630 for x64
+  Copyright (C) Microsoft Corporation.  All rights reserved.
+  cl /c /W1 /WX- /diagnostics:column /O2 /D _MBCS /D "CMAKE_INTDIR=\"Debug\"" /Gm- /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_82ac3.dir\Debug\\" /Fd"cmTC_82ac3.dir\Debug\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue  -mlongcalls -Wno-frame-address C:\Users\Public\SMC_Dandelions\sample_project\build\CMakeFiles\CMakeTmp\testCCompiler.c
+cl : command line  error D8021: invalid numeric argument '/Wno-frame-address' [C:\Users\Public\SMC_Dandelions\sample_project\build\CMakeFiles\CMakeTmp\cmTC_82ac3.vcxproj]
+
+
+

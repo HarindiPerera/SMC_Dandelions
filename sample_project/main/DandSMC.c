@@ -47,7 +47,6 @@ void print_check(void)
 {
     printf("Print check\n");
 }
-
 /**
  *@brief Configures GPIO pins for input and output
  *This function initializes GPIO pins for input and output as specified by theioConfig parameter. The outputs are configured with no interrupts enabled,
@@ -69,9 +68,9 @@ esp_err_t setupHW(void){
     rtn = gpio_config(&ioConfig);               // commit these output configuations.
     if(rtn != ESP_OK){
         if(DEBUG){
-            printf("setupHW: setup output Fail\n");
+            printf("setupHW(): setup output Fail\n");
         }else{
-            logError("setupHW: setup output Fail\n");
+            logError("setupHW(): setup output Fail\n");
         }
         return ESP_NONCRITICAL;
     }
@@ -84,26 +83,33 @@ esp_err_t setupHW(void){
     rtn = gpio_config(&ioConfig);
     if(rtn != ESP_OK){
         if(DEBUG){
-            printf("setupHW: setup input Fail\n");
+            printf("setupHW(): setup input Fail\n");
         }else{
-            logError("setupHW: setup input Fail\n");
+            logError("setupHW(): setup input Fail\n");
         }
         return ESP_NONCRITICAL;
     }
     // Set up the inputs/Outputs
     ioConfig.intr_type = GPIO_INTR_DISABLE;     // This might chage in the future
-    ioConfig.pin_bit_mask = INPUT_BIT_MASK;     // Defined in DandSMC.h
+    ioConfig.pin_bit_mask = INPUT_OUTPUT_BIT_MASK;     // Defined in DandSMC.h
     ioConfig.mode = GPIO_MODE_INPUT_OUTPUT;            // Set to inputs
     ioConfig.pull_down_en = 1;                  // enable pull down
     ioConfig.pull_up_en = 0;                    // disable pull up
     rtn = gpio_config(&ioConfig);
     if(rtn != ESP_OK){
         if(DEBUG){
-            printf("setupHW: setup in/out Fail\n");
+            printf("setupHW(): setup in/out Fail\n");
         }else{
-            logError("setupHW: setup in/out Fail\n");
+            logError("setupHW(): setup in/out Fail\n");
         }
         return ESP_NONCRITICAL;
+    }
+
+    // Nominal Exit
+    if(DEBUG){
+        printf("setupHW(): ESP_OK\n");
+    }else{
+        logError("setupHW(): ESP_OK\n");
     }
     return ESP_OK;
 }
@@ -168,6 +174,7 @@ esp_err_t ADC_Pwr(bool en){
  */
 esp_err_t I2C_Init(void)
 {
+    ADC_Pwr(1);
     esp_err_t rtn; 
     i2c_config_t conf;
     conf.mode = I2C_MODE_MASTER;                             //Set the I2C master mode
@@ -196,7 +203,7 @@ esp_err_t I2C_Init(void)
         }
         return ESP_FAIL;
     }
-
+    ADC_Pwr(0);
     //printf("ADC:    I2C Master Initialised\n");
     if(DEBUG){
             printf("I2C_Init(): - ESP_OK\n");
@@ -216,6 +223,8 @@ esp_err_t I2C_Init(void)
  */
 esp_err_t I2C_Scan()
 {
+    ADC_Pwr(1);
+
     esp_err_t rtn = ESP_OK;
     uint8_t i2c_addresses[128];             //An array to hold the addresses
     int num_devices = 0;                    //Number of devices connected
@@ -231,7 +240,8 @@ esp_err_t I2C_Scan()
         }
     }
 
-    
+    ADC_Pwr(0);
+
     if (DEBUG){
         printf("I2C_Scan(): Found %d I2C devices:\n", num_devices);
          for (int i = 0; i < num_devices; i++) {
@@ -242,7 +252,7 @@ esp_err_t I2C_Scan()
         sprintf(str,"I2C_Scan(): Devices found : %d\n", num_devices);
         logError(str);           
     }
-
+    
     if (rtn!= ESP_OK){
         if(DEBUG){
             printf("I2C_Scan(): Bad i2c RW - ESP_ERRINVALID_RESPONSE\n");
@@ -272,9 +282,9 @@ esp_err_t I2C_Scan()
 
     // Nominal Exit
     if(DEBUG){
-                printf("I2C_Scan(): All devices found - ESP_OK\n");
-            }else{
-                logError("I2C_Scan(): All devices found - ESP_OK\n");
+            printf("I2C_Scan(): All devices found - ESP_OK\n");
+        }else{
+            logError("I2C_Scan(): All devices found - ESP_OK\n");
         }
     return ESP_OK;
 }
@@ -433,13 +443,14 @@ This function sets the state of two GPIO pins to enable or disable the motor.
 @param[in] en Whether to enable (true) or disable (false) the motor.
 */
 esp_err_t EnMotor(bool en){
-    // This could probably have some error checking inplemented
+    
     esp_err_t rtn = ESP_OK;
 
     rtn |= gpio_set_level(MOTEN,!en);              // 1 = off, 0 = on
     rtn |= gpio_set_level(MVEN,en);                // 1 = on,  0 = off
     rtn |= gpio_set_level(MSLEEP,en);              // 1 = wake,0 = sleep
 
+    // There was an issue with setting the GPIOS
     if (rtn != ESP_OK){
         if(DEBUG){
             printf("EnMotor(): gpio_set_level() ESP_FAIL\n");
@@ -449,6 +460,7 @@ esp_err_t EnMotor(bool en){
         return ESP_FAIL;
     }
 
+    // Nominal Return 
     if(DEBUG){
             printf("EnMotor(): ESP_OK\n");
     }else{
@@ -469,107 +481,169 @@ esp_err_t EnMotor(bool en){
  * 
  * @return An integer value indicating the result of the operation (`SUCCESS` for success, `HW_FAULT` for a hardware fault).
  */ 
-int RunMotor(bool dir, int ticks){
+esp_err_t RunMotor(bool dir, int *ticks){
 
+    esp_err_t err = ESP_OK;  
+;    if ((*ticks) <=0 ){
+        if(DEBUG){
+            printf("RunMotor(): ticks <0, invalid argument - ESP_FAIL\n");
+        }else{
+            logError("RunMotor(): ticks <0, invalid argument - ESP_FAIL\n");
+        }
+        return ESP_FAIL;
+    }
+    
     //Enable the Motor
-    EnMotor(1);
+    if (EnMotor(1)!=ESP_OK){
+        if(DEBUG){
+            printf("RunMotor(): EnMotor(1): - ESP_FAIL\n");
+        }else{
+            logError("RunMotor(): EnMotor(1): - ESP_FAIL\n");
+        }
+        return ESP_FAIL;  
+    }
 
-    //Returns fault condition when fails to set direction
-    esp_err_t err = ESP_OK;                     
+    //Set Motor Direction      
     if(gpio_set_level(MOTDIR,dir)!=ESP_OK){
-        printf("ERROR: Error in setting the motor direction");
-        return ESP_FAIL;            //NON CRIT - TRY AGAIN HIGHER LEVEL                      
+        if(DEBUG){
+            printf("RunMotor(): Motor Direction Set Fail - ESP_FAIL\n");
+        }else{
+            logError("RunMotor(): Motor Direction Set Fail - ESP_FAIL\n");
+        }
+        return ESP_FAIL;                                        //NON CRIT - TRY AGAIN HIGHER LEVEL                      
     }
 
     //Set motstep high and low for ticks amount
-    for(int i =0; i<=ticks; i++){
-        err = gpio_set_level(MOTSTEP,1);
-        vTaskDelay(10/portTICK_PERIOD_MS);
-        err = gpio_set_level(MOTSTEP,0);
-        vTaskDelay(10/portTICK_PERIOD_MS);
+    // decrements the amount of ticks that are passed in as a pointer.
+    // IF there is any issue anywhere then the amount of ticks will be altered in the parent functions. 
 
-         // Returns fault if unable to toggle MOTSTEP pin
-        if(err!=ESP_OK){
-            printf("ERROR: Error in setting toggeling the MOTSTEP pin. Breaking from loop.\n");
-            return ESP_FAIL;        //NON CRIT - TRY AGAIN HIGHER LEVEL                  
-        }  
+    
+    for(esp_err_t mError =ESP_OK; (*ticks)>0 && mError==ESP_OK &&  gpio_get_level(GPIO_NUM_0)==1; (*ticks)-=1){
+        mError |= gpio_set_level(MOTSTEP,1);
+        vTaskDelay(5/portTICK_PERIOD_MS);
+        mError |= gpio_set_level(MOTSTEP,0);
+        vTaskDelay(10/portTICK_PERIOD_MS);
     }
 
-    //Disable the Motor
-    EnMotor(0);
+    // If loop ends because there has been an err!=0 condition
+    if(err!=ESP_OK){
+       if(DEBUG){
+            printf("RunMotor(): Motor Stepping Loop Fail - ESP_FAIL\n");
+        }else{
+            logError("RunMotor(): Motor Stepping Loop Fail - ESP_FAIL\n");
+        }
+        err = ESP_FAIL;                     
+    }  
 
-    return ESP_OK;                             // RET ESPOK
+    //Disable the Motor
+    if (EnMotor(0)!=ESP_OK){
+        if(DEBUG){
+            printf("RunMotor(): EnMotor(0): - ESP_FAIL\n");
+        }else{
+            logError("RunMotor(): EnMotor(0): - ESP_FAIL\n");
+        }
+        return ESP_FAIL;  
+    }
+
+    // Nominal return 
+    return ESP_OK;                             
 }
 
 /**
 *@brief Updates the experiment count stored in Non-Volatile Storage (NVS) and returns the updated value.
 *@param erase If set to true, the stored experiment count will be erased and reset to 0.
-*@return Returns the updated experiment count on success, -1 on failure.
+*@param count Pointer to an intergerger to be updated by this function.
+*@return returns an esp_err_t error code. 
 */
-int updateExperimentCount(bool erase){
-    //NON CRIT
-    //printf("Opening Non-Volatile Storage (NVS) handle... ");
+esp_err_t updateExperimentCount(bool erase, int *count){
+ 
     nvs_handle_t my_handle;
     esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
 
-    if (err != ESP_OK) {
-        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-        return -1;
-    } else {
-        
-
-        // Read
-       // printf("Reading restart counter from NVS ... ");
-        int32_t experiment_counter = 0; // value will default to 0, if not set yet in NVS
-        err = nvs_get_i32(my_handle, "restart_counter", &experiment_counter);
-        switch (err) {
-            case ESP_OK:
-            //    printf("Done\n");
-                printf("Restart counter = %" PRIu32 "\n", experiment_counter);
-                break;
-            case ESP_ERR_NVS_NOT_FOUND:
-                printf("The value is not initialized yet!\n");
-                break;
-            default :
-                printf("Error (%s) reading!\n", esp_err_to_name(err));
+    if (err != ESP_OK){
+        if(DEBUG){
+            printf("updateExperientCount(): nvs_open(): Open error - ESP_NONCRITICAL\n");
+        }else {
+            logError("updateExperientCount(): nvs_open(): open error - ESP_NONCRITICAL\n");
         }
+        return ESP_NONCRITICAL;
+    }
 
-        // Write
-        //printf("Updating restart counter in NVS ... ");
-        
-        if(erase){
-            experiment_counter = 0;
-        }else{
-            experiment_counter++;
+    // Read
+    int32_t experiment_counter = 0; // value will default to 0, if not set yet in NVS
+    err = nvs_get_i32(my_handle, "restart_counter", &experiment_counter);
+    switch (err) {
+        case ESP_OK:
+        //    printf("Done\n");
+            printf("Restart counter = %" PRIu32 "\n", experiment_counter);
+            break;
+        case ESP_ERR_NVS_NOT_FOUND:
+            printf("The value is not initialized yet!\n");
+            break;
+        default :
+            printf("Error (%s) reading!\n", esp_err_to_name(err));
+    }
+
+    if(err != ESP_OK){
+        if(DEBUG){
+            printf("updateExperientCount(): nvs_get_i32(): Read error - ESP_NONCRITICAL\n");
+        }else {
+            logError("updateExperientCount(): nvs_get_i32(): Read error - ESP_NONCRITICAL\n");
         }
-        
-        err = nvs_set_i32(my_handle, "restart_counter", experiment_counter);
-        printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
+        return ESP_NONCRITICAL;
+    }
 
-        // Commit written value.
-        // After setting any values, nvs_commit() must be called to ensure changes are written
-        // to flash storage. Implementations may write to storage at other times,
-        // but this is not guaranteed.
-        //printf("Committing updates in NVS ... ");
-        err = nvs_commit(my_handle);
-        printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
 
-        // Close
-        nvs_close(my_handle);   
-        return (int)experiment_counter;
+    if(erase){
+        experiment_counter = 0;
+    }else{
+        experiment_counter++;
     }
     
+    err = nvs_set_i32(my_handle, "restart_counter", experiment_counter);
+    printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
+    if(err != ESP_OK){
+        if(DEBUG){
+            printf("updateExperientCount(): nvs_set_i32(): Write error - ESP_NONCRITICAL\n");
+        }else {
+            logError("updateExperientCount(): nvs_set_i32(): Write error - ESP_NONCRITICAL\n");
+        }
+        return ESP_NONCRITICAL;
+    }
+
+    // Commit written value.
+    // After setting any values, nvs_commit() must be called to ensure changes are written to flash 
+    err = nvs_commit(my_handle);
+    printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
+    if(err != ESP_OK){
+        if(DEBUG){
+            printf("updateExperientCount(): nvs_commit(): Commit error - ESP_NONCRITICAL\n");
+        }else {
+            logError("updateExperientCount(): nvs_commit(): Commit error - ESP_NONCRITICAL\n");
+        }
+        return ESP_NONCRITICAL;
+    }
+
+    // Close
+    nvs_close(my_handle);   
+    *count = (int)experiment_counter;
+
+    // NOMINAL EXIT POINT
+    return ESP_OK;
+ 
 }
 
-void checkGPIOS(){
-    // List that is just for reference 
+esp_err_t checkGPIOS(void){
+    esp_err_t err = ESP_OK;
+    // List for reference 
+    // At the point where the motor should be ready to spin:
 
     //{MSLEEP,"MSLEEP"},      // should be 1  = wake
     //{MVEN, "MVEN"},         // should be 1 = enable fuse
-    //{MOTEN,"MOTEN"},        // should be 0 
-    //{FFAULT, "FFAULT"},     // should be ?
-    //{MFAULT, "MFAULT"},     // should be ?
-    //{ADCLPWR, "ADCLPWR"},   // should be 1
+    //{MOTEN,"MOTEN"},        // should be 0 = enable Motor
+    //{FFAULT, "FFAULT"},     // should be 1 = Open drain active low with external PU resistor. 
+    //{MFAULT, "MFAULT"},     // should be 1 = Open drain active low with external PU resistor
+    //{ADCLPWR, "ADCLPWR"},   // should be 1 
     //{ADCRPWR, "ADCRPWR"},   // should be 1
 
     EnMotor(1);       // enable the motor
@@ -583,10 +657,10 @@ void checkGPIOS(){
             printf("%s , %d\n",healthCheck[i].name,(int)level);
         }
     if (levels != bitmask){
-        printf("GPIOs fail system health check \n");
+        err = ESP_FAIL;
     }
     EnMotor(0);   // disable the motor
-
+    return err;
 }
 
 /**
@@ -594,18 +668,23 @@ void checkGPIOS(){
  * @param none
  * @return  not yet implemented 
 */
-void checkMem(){
+esp_err_t checkMem(void){
     uint32_t free_heap_size = esp_get_free_heap_size();
-    printf("Free Heap = %d bytes.\n",(int)free_heap_size);
-    // what would constitue a memory issue? 
+    char str[32];
+    sprintf(str,"Free Heap = %d bytes.\n",(int)free_heap_size);
+    if(DEBUG){
+        printf(str);
+    }else{
+        logError(str);
+    }
+    return ESP_OK;  // what would constitue a memory issue? 
+    
 }
 
-void checkADC(){
-    printf("checkADC function not implemented\n");
-}
-
-void checkCANctrl(){
+esp_err_t checkCANctrl(void){
     printf("checkCANctrl function not implemented\n");
+    esp_err_t rtn = ESP_OK;
+    return rtn;
 }
 
 /**
@@ -616,20 +695,48 @@ void checkCANctrl(){
 * @param NONE
 * @return NOT IMPLEMENTED YET
 */
-void systemHealthCheck(){
+esp_err_t systemHealthCheck(void){
+    esp_err_t rtn = ESP_OK;
+   if(DEBUG){
     printf("SYSTEM HEALTH CHECK\n");
+   }
+   ADC_Pwr(1);             // Power om the ADC
 
-    checkGPIOS();   // Check the GPIO's 
-    checkADC();     // Check the ADC's
-    checkCANctrl(); // Check Can Controller
-    checkMem();     // Check the memory avaliable
+    rtn |= checkGPIOS();   // Check the GPIO's 
+    rtn |= I2C_Scan();     // Check the ADC's
+    rtn |= checkCANctrl(); // Check Can Controller
+    rtn |= checkMem();     // Check the memory avaliable
+    ADC_Pwr(0);            // Power off the ADC
+
+    if(rtn!=ESP_OK){
+        if(DEBUG){
+            printf("systemHealthCheck(): ESP_FAIL\n");
+        }else{
+            logError("systemHealthCheck(): ESP_FAIL\n");
+        }
+        return ESP_FAIL;
+    }else{
+        if(DEBUG){
+            printf("systemHealthCheck(): ESP_OK\n");
+        }else{
+            logError("systemHealthCheck(): ESP_OK\n");
+        }
+    }
+    // NOMINAL RETURN
+    return ESP_OK;
 }
 
 /**
  * @brief NOT YET IMPLEMENTED
 */
-void calibrate(){
-    printf("calibrate function not implemented\n");
+esp_err_t calibrate(){
+    
+    if(DEBUG){
+        printf("calibrate(): function not implemented\n");
+    }else{
+        logError("calibrate(): function not implemented\n");
+    }
+    return ESP_OK;
 }
 
 /**
@@ -665,42 +772,289 @@ void PollFaultIndicatorsTask(void* pvParamemters){
  * @param NONE
  * @return Will return some type of fault if there is an issue with the the experiment NOT YET IMPLEMENTED
 */
-int RunExperiment(){
+esp_err_t RunExperiment(int *phase, int *ticks){
+    
+  // NOTE that if you are here then the prvious action centered the cariage. 
+
+    
     // when the experiment is running. create a task that allows for the polling of the Fault Indicator Pins. 
     TaskHandle_t FaultIndHandle;
-    xTaskCreate(
+    xTaskCreatePinnedToCore(
         PollFaultIndicatorsTask,    // pointer to the function that implements the task
         "HWFault",                  // text name given to the task
         2048,                       // size of stack that should be created in words not bytes
         NULL,                       // Reference to xParameters used by the task
         1,                          // task priorety
-        &FaultIndHandle);           // handle to the task being created. 
+        &FaultIndHandle,            // handle to the task being created.
+        1                           // Core that it is pinned to
+        );   
+
+    EnMotor(1);
+    ADC_Pwr(1);
+
+    if(systemHealthCheck()!= ESP_OK){
+        // Here we assume that the lower level function does the logging
+        // If system Health Check fails we return a fail
+        return ESP_FAIL;
+    }
+    if(calibrate()!=ESP_OK){
+        // Assume that calibrate takes care of any logging. 
+        // If system cannot calibrate then system fails. 
+        return ESP_FAIL;
+    }
 
 
-    // Note where the System Health check takes place. Both ADC's should be powered.
-    systemHealthCheck();    
-    
-    calibrate(); // [TODO]
-    
-    printf("____RUNNING EXPERIMENT____\n");
-    // Run the motor
-    RunMotor(1,200*(TICKS_PER_REV*0.5));
-
+    // CREATE THE AMOUNT OF TICKS TO MOVE
+    (*ticks) = TICKS_PER_REV*2;        
+    (*phase) = 1;              // This is the phase of the experiment 
+    // Run motor in the first direction
+    if(RunMotor(1,ticks) !=ESP_OK){
+        printf("There has been some motor issues\n");   // TODO -> make this an actuall thing 
+    }
+   // Add some condition to check the number of ticks. 
+    if ((*ticks)!=0){
+        if(DEBUG){
+            printf("RunExperiment(): phase %d irregular, ticks %d\n",(*phase),(*ticks));
+        }else{
+            char str[64]; 
+            sprintf(str, "RunExperiment(): irregular P %d, T %d\n", (*phase),(*ticks));
+            logError(str);
+        }
+        return ESP_NONCRITICAL;
+    }
     // Take measurement [J] TODO
 
-    // Run the motor
-    RunMotor(0,200*TICKS_PER_REV);
 
+    // Set the number of ticks for the second movement. 
+    (*ticks) = 4*TICKS_PER_REV;     // set new tick amount 
+    (*phase)+=1;                    // increment the phase
+    
+    // Run motor in the second direction
+    if(RunMotor(0,ticks) !=ESP_OK){
+        printf("There has been some motor issues\n");
+    }
+    // Add some condition to check the number of ticks. 
+    if ((*ticks)!=0){
+        if(DEBUG){
+            printf("RunExperiment(): phase %d irregular, ticks %d\n",(*phase),(*ticks));
+        }else{
+            char str[64]; 
+            sprintf(str, "RunExperiment(): irregular P %d, T %d\n", (*phase),(*ticks));
+            logError(str);
+        }
+        return ESP_NONCRITICAL;
+    }
     // Take Measurement [J] TODO
 
-    //Run the motor
-    RunMotor(1,200*TICKS_PER_REV*0.5);
 
-    vTaskDelay(5000/portTICK_PERIOD_MS);    // delay to check if the polling is happening repeadatly
+    // Set the number of ticks for the third movement. 
+    (*ticks) = 2*TICKS_PER_REV;     // Set (*ticks) for the last phase
+    (*phase)+=1;                    // increment the phase
+    // Run motor in the second direction
+    if(RunMotor(1,ticks) !=ESP_OK){
+        printf("There has been some motor issues\n");
+    }
+    // Add some condition to check the number of ticks. 
+    if ((*ticks)!=0){
+        if(DEBUG){
+            printf("RunExperiment(): phase %d irregular, ticks %d\n",(*phase),(*ticks));
+        }else{
+            char str[64]; 
+            sprintf(str, "RunExperiment(): irregular P %d, T %d\n", (*phase),(*ticks));
+            logError(str);
+        }
+        return ESP_NONCRITICAL;
+    }
+
+
+    // for a nominal experiment the phase is set to zero 
+    // and the (*ticks) should be 0
+    (*phase) = 0;
+
     vTaskDelete(FaultIndHandle);            // delete the FI polling task. 
-    return 1;                               // [TODO]
+    return ESP_OK;                        
 
 }
+
+
+// Sets the experiment phase and tick in memory
+esp_err_t setExperimentPhaseTicks(int *phase, int *ticks, bool reset){
+
+    if(reset){
+        *phase = 0;
+        *ticks = 0;
+    }
+    if(DEBUG){
+        printf("setting phase %d and ticks %d in NVS\n", (*phase),(*ticks));
+    }
+    nvs_handle_t my_handle;
+    esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
+
+    if (err != ESP_OK){
+        if(DEBUG){
+            printf("setExperimentPhaseTick(): nvs_open(): Open error - ESP_NONCRITICAL\n");
+        }else {
+            logError("setExperimentPhaseTick(): nvs_open(): open error - ESP_NONCRITICAL\n");
+        }
+        return ESP_NONCRITICAL;
+    }
+
+    // set Phase
+    err = nvs_set_i32(my_handle, "phase", (int32_t)(*phase));
+    printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
+    if(err != ESP_OK){
+        if(DEBUG){
+            printf("setExperimentPhaseTick(): nvs_set_i32(): phase Write error - ESP_NONCRITICAL\n");
+        }else {
+            logError("setExperimentPhaseTick(): nvs_set_i32(): phase Write error - ESP_NONCRITICAL\n");
+        }
+        return ESP_NONCRITICAL;
+    }
+    // Set Ticks
+    err = nvs_set_i32(my_handle, "ticks", (int32_t)(*ticks));
+    printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
+    if(err != ESP_OK){
+        if(DEBUG){
+            printf("setExperimentPhaseTick(): nvs_set_i32(): tick error - ESP_NONCRITICAL\n");
+        }else {
+            logError("setExperimentPhaseTick(): nvs_set_i32(): tick error - ESP_NONCRITICAL\n");
+        }
+        return ESP_NONCRITICAL;
+    }
+
+    // Commit written value.
+    // After setting any values, nvs_commit() must be called to ensure changes are written to flash 
+    err = nvs_commit(my_handle);
+    printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
+    if(err != ESP_OK){
+        if(DEBUG){
+            printf("setExperimentPhaseTick(): nvs_commit(): Commit error - ESP_NONCRITICAL\n");
+        }else {
+            logError("setExperimentPhaseTick(): nvs_commit(): Commit error - ESP_NONCRITICAL\n");
+        }
+        return ESP_NONCRITICAL;
+    }
+
+    // Close
+    nvs_close(my_handle);   
+
+    // NOMINAL EXIT POINT
+    return ESP_OK;
+
+
+}
+
+// gets the previous phase and tick from memory 
+esp_err_t getExerpimentPhaseTicks(int *phase, int *ticks){
+    if(DEBUG){
+        printf("Getting previously stored phase and ticks from NVS\n");
+    }
+    nvs_handle_t my_handle;
+    esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
+
+    if (err != ESP_OK){
+        if(DEBUG){
+            printf("getExperimentPhaseTick(): nvs_open(): Open error - ESP_NONCRITICAL\n");
+        }else {
+            logError("getExperimentPhaseTick(): nvs_open(): Open error - ESP_NONCRITICAL\n");
+        }
+        return ESP_NONCRITICAL;
+    }
+
+    // Read phase
+    err = nvs_get_i32(my_handle, "phase", (int32_t*)phase);
+    switch (err) {
+        case ESP_OK:
+        //    printf("Done\n");
+            printf("phase = %d\n", (*phase));
+            break;
+        case ESP_ERR_NVS_NOT_FOUND:
+            printf("The value is not initialized yet!\n");
+            break;
+        default :
+            printf("Error (%s) reading!\n", esp_err_to_name(err));
+    }
+
+    if(err != ESP_OK){
+        if(DEBUG){
+            printf("getExperimentPhaseTick(): nvs_get_i32(): phase Read error - ESP_NONCRITICAL\n");
+        }else {
+            logError("getExperimentPhaseTick(): nvs_get_i32(): phase Read error - ESP_NONCRITICAL\n");
+        }
+        return ESP_NONCRITICAL;
+    }
+
+    // Read ticks
+    err = nvs_get_i32(my_handle, "ticks", (int32_t*)ticks);
+    switch (err) {
+        case ESP_OK:
+        //    printf("Done\n");
+            printf("ticks = %d\n", (*ticks));
+            break;
+        case ESP_ERR_NVS_NOT_FOUND:
+            printf("The value is not initialized yet!\n");
+            break;
+        default :
+            printf("Error (%s) reading!\n", esp_err_to_name(err));
+    }
+
+    if(err != ESP_OK){
+        if(DEBUG){
+            printf("getExperimentPhaseTick(): nvs_get_i32():ticks Read error - ESP_NONCRITICAL\n");
+        }else {
+            logError("getExperimentPhaseTick(): nvs_get_i32(): ticks Read error - ESP_NONCRITICAL\n");
+        }
+        return ESP_NONCRITICAL;
+    }
+
+
+    return ESP_OK;
+}
+
+// takes the non-zero phase and tick and re-centers the cariage. 
+esp_err_t neutralise(int *phase, int *ticks){
+
+    printf("neutralise(): phase = %d, ticks = %d\n",(*phase),(*ticks));
+    if((*phase) ==1 ){
+        // move backward by MaxTicks - ticks
+        *ticks = 2*TICKS_PER_REV - *ticks;
+        EnMotor(1); 
+        RunMotor(0, ticks);
+        EnMotor(0);
+        *phase = 0;     // reset phase after neutralisation.
+    }else if ((*phase) == 2){
+       if ((*ticks)>2*TICKS_PER_REV){
+            // Move backward 2*TICKS_PER_REV - (4*TICKS_PER_REV - ticks)
+            *ticks = 2*TICKS_PER_REV - (4*TICKS_PER_REV - *ticks);
+            EnMotor(1);
+            RunMotor(0,ticks);
+            EnMotor(0);
+       }else if((*ticks<2*TICKS_PER_REV)){
+            // Move forwards 2*TICKS_PER_REV - ticks
+            *ticks = 2*TICKS_PER_REV - *ticks;
+            EnMotor(1);
+            RunMotor(1,ticks);
+            EnMotor(0);
+       }else if((*ticks) == 2*TICKS_PER_REV){
+            printf("Already neutralised\n");
+       }
+       *phase = 0;     // reset phase after neutralisation.
+    }else if ((*phase) ==3){
+        // Complete the remaining ticks to get to neutral
+        EnMotor(1);         // enable motor
+        RunMotor(1, ticks);  
+        EnMotor(0);
+        *phase = 0;     // reset phase after neutralisation.
+    }else{
+        printf("neutralise(): incompatible phase\n");
+    }
+
+    
+    return ESP_OK;  
+}
+
+
+
 
 void logError(char* str){
 
