@@ -6,7 +6,7 @@
 
 #define DEBUG true                        // change this to change where messages go to
 // HARDWARE CONSTANTS
-#define TICKS_PER_REV 600          // The number of ticks per revolution of our steper motor
+#define TICKS_PER_REV 100          // The number of ticks per revolution of our steper motor
 #define WD_DELAY_MS 10              // settling time for external watchdog timer. 
 
 // QUEUE  CONSTANTS

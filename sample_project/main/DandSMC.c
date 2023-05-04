@@ -117,11 +117,12 @@ esp_err_t setupHW(void){
  */
 esp_err_t ADC_Pwr(bool en){
 
-    esp_err_t ADCRCheck, ADCLCheck;
+    esp_err_t ADCRCheck; 
+    esp_err_t ADCLCheck;
 
     //set ADC pins as high
     ADCLCheck = gpio_set_level(ADCLPWR, en);
-    ADCRCheck = gpio_set_level(ADCRPWR, en);
+    ADCRCheck = gpio_set_level(ADCRPWR, en);  
 
     if (ADCLCheck != ESP_OK && ADCRCheck != ESP_OK){
         if(DEBUG){
@@ -300,7 +301,7 @@ esp_err_t ADC_Read(uint8_t address)
 
     //ASSESS I2C FUNCTIONS AND THEIR PREEXISTING RETURN VALUES
     esp_err_t rtn = ESP_OK;
-    TickType_t ticks_to_wait;
+    TickType_t ticks_to_wait = 1000;
 
     //4 channel config bytes
     //uint8_t configByte[]=  {0XCF , 0XDF , 0XEF , 0XFF};
@@ -325,7 +326,7 @@ esp_err_t ADC_Read(uint8_t address)
     
 
     //Implement I2C Comms
-    rtn |= i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, 1000 / portTICK_PERIOD_MS );
+    rtn |= i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, ticks_to_wait);
     if ( rtn!= ESP_OK ){
         //ESP_ERROR_CHECK(rtn);
         printf("i2c_master_cmd_begin failed");
@@ -344,7 +345,7 @@ esp_err_t ADC_Read(uint8_t address)
     rtn |= i2c_master_read(read_cmd, buf, buf_size, I2C_MASTER_LAST_NACK);
     rtn |= i2c_master_stop(read_cmd);
     //Implement I2C Comms
-    rtn |= i2c_master_cmd_begin(I2C_MASTER_NUM ,read_cmd, 1000 / portTICK_PERIOD_MS );
+    rtn |= i2c_master_cmd_begin(I2C_MASTER_NUM ,read_cmd, ticks_to_wait);
     i2c_cmd_link_delete(read_cmd);
 
     return rtn;
@@ -369,16 +370,16 @@ esp_err_t EnMotor(bool en){
     // There was an issue with setting the GPIOS
     if (rtn != ESP_OK){
         if(DEBUG){
-            printf("EnMotor(): gpio_set_level() ESP_FAIL\n");
+            printf("EnMotor(%d): gpio_set_level() ESP_FAIL\n",en);
         }else{
-            logError("EnMotor(): gpio_set_level() ESP_FAIL\n");
+            logError("EnMotor(%d): gpio_set_level() ESP_FAIL\n",en);
         }
         return ESP_FAIL;
     }
 
     // Nominal Return 
     if(DEBUG){
-            printf("EnMotor(): ESP_OK\n");
+            printf("EnMotor(%d): ESP_OK\n",en);
     }else{
         logError("EnMotor(): ESP_OK\n");
     }
@@ -485,6 +486,7 @@ esp_err_t updateExperimentCount(bool erase, int *count){
         return ESP_NONCRITICAL;
     }
 
+
     // Read
     int32_t experiment_counter = 0; // value will default to 0, if not set yet in NVS
     err = nvs_get_i32(my_handle, "restart_counter", &experiment_counter);
@@ -495,6 +497,10 @@ esp_err_t updateExperimentCount(bool erase, int *count){
             break;
         case ESP_ERR_NVS_NOT_FOUND:
             printf("The value is not initialized yet!\n");
+            printf("Initialisiing memory \n");
+            nvs_set_i32(my_handle,"restart_counter",experiment_counter);
+            nvs_commit(my_handle);
+            nvs_close(my_handle);
             break;
         default :
             printf("Error (%s) reading!\n", esp_err_to_name(err));
@@ -562,8 +568,7 @@ esp_err_t checkGPIOS(void){
     //{ADCLPWR, "ADCLPWR"},   // should be 1 
     //{ADCRPWR, "ADCRPWR"},   // should be 1
 
-    EnMotor(1);       // enable the motor
-
+    
     uint16_t bitmask = 0b0000000001111011;  /* @todo should be defined as a constant elsewhere */
     uint16_t levels =  0b0000000000000000;
 
@@ -575,7 +580,7 @@ esp_err_t checkGPIOS(void){
     if (levels != bitmask){
         err = ESP_FAIL;
     }
-    EnMotor(0);   // disable the motor
+   
     return err;
 }
 
@@ -613,16 +618,24 @@ esp_err_t checkCANctrl(void){
 */
 esp_err_t systemHealthCheck(void){
     esp_err_t rtn = ESP_OK;
+    esp_err_t i2cErr = ESP_OK;
+
    if(DEBUG){
     printf("SYSTEM HEALTH CHECK\n");
    }
-   ADC_Pwr(1);             // Power om the ADC
+    // It is the responsibility of the Calling function to make sure that everything is established 
 
-    rtn |= checkGPIOS();   // Check the GPIO's 
-    rtn |= I2C_Scan();     // Check the ADC's
+    rtn |= checkGPIOS();   // Check the GPIO's
     rtn |= checkCANctrl(); // Check Can Controller
     rtn |= checkMem();     // Check the memory avaliable
-    ADC_Pwr(0);            // Power off the ADC
+    i2cErr = I2C_Scan();   // find both the adcs.
+
+    if(i2cErr == ESP_FAIL){
+        rtn |= i2cErr;
+    }else if((i2cErr == ESP_OK)|(i2cErr == ESP_NONCRITICAL)){
+        printf("systemHealthCheck(): One of the ADC's is down, But we must go on\n");
+        rtn |= ESP_OK;      // Still opperate if one of the ADC's is down. 
+    }
 
     if(rtn!=ESP_OK){
         if(DEBUG){
@@ -679,7 +692,6 @@ void PollFaultIndicatorsTask(void* pvParamemters){
     vTaskDelete(NULL);                                                          // delete task if it breaks for some reason
     printf("CRITICAL ERROR: hwWDPulseTask broke from loop. Task Deleted\n");    // error msg
 }
-
 
 /*_________________________________________________________________*/
 /**
@@ -762,10 +774,10 @@ esp_err_t RunExperiment(int *phase, int *ticks){
         }
         return ESP_NONCRITICAL;
     }
-    // Take Measurement
+    
     // Take measurement 
-    ADC_Read(ADC_ADDR_1);
-    ADC_Read(ADC_ADDR_2);
+    //ADC_Read(ADC_ADDR_1);
+    //ADC_Read(ADC_ADDR_2);
 
 
     // Set the number of ticks for the third movement. 
@@ -824,7 +836,8 @@ esp_err_t setExperimentPhaseTicks(int *phase, int *ticks, bool reset){
 
     // set Phase
     err = nvs_set_i32(my_handle, "phase", (int32_t)(*phase));
-    printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
+    printf("set phase NVS = ");
+    printf((err != ESP_OK) ? "Failed!\n" : " Done\n");
     if(err != ESP_OK){
         if(DEBUG){
             printf("setExperimentPhaseTick(): nvs_set_i32(): phase Write error - ESP_NONCRITICAL\n");
@@ -835,6 +848,7 @@ esp_err_t setExperimentPhaseTicks(int *phase, int *ticks, bool reset){
     }
     // Set Ticks
     err = nvs_set_i32(my_handle, "ticks", (int32_t)(*ticks));
+    printf("set ticks NVS = ");
     printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
     if(err != ESP_OK){
         if(DEBUG){
@@ -848,6 +862,7 @@ esp_err_t setExperimentPhaseTicks(int *phase, int *ticks, bool reset){
     // Commit written value.
     // After setting any values, nvs_commit() must be called to ensure changes are written to flash 
     err = nvs_commit(my_handle);
+    printf("commit phase & ticks NVS = ");
     printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
     if(err != ESP_OK){
         if(DEBUG){
