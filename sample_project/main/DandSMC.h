@@ -2,13 +2,14 @@
 #define DANDSMC_H
 
 #include "esp_err.h"
-#include "esp_spiffs.h"
 
 
 #define DEBUG true                        // change this to change where messages go to
 // HARDWARE CONSTANTS
-#define TICKS_PER_REV 12000          // The number of ticks per revolution of our steper motor
+#define TICKS_PER_REV 600          // The number of ticks per revolution of our steper motor
+#define WD_DELAY_MS 10              // settling time for external watchdog timer. 
 
+// QUEUE  CONSTANTS
 #define QUEUE_LENGTH    10              //changed from 10 to 20 
 #define ITEM_SIZE       sizeof(uint32_t)
 
@@ -30,6 +31,7 @@
 #define OUTPUT_BIT_MASK       0b000000000110100000000000000000000000
 #define INPUT_BIT_MASK        0b110000000000000000000000000000000000
 #define INPUT_OUTPUT_BIT_MASK 0b001100001000000000110000000000000000
+// Pull Up and Pull down masks
 #define PU_MASK               0b110000000000011000000000000000000000
 #define PD_MASK               0b001100001110100000110000000000000000
 
@@ -53,75 +55,48 @@
 #define RW_LENGTH 129                           //Reg READ_WRITE len 
 
 #define SAMPLE_DELAY_MS 1000                    //delay between ADC samples in milliseconds
-#define WD_DELAY_MS 10
 
 
-
-
-
-// DANDELIONS ERROR CODES
-#define SUCCESS 1
-#define MOTOR_FAULT -1
-#define FUSE_FAULT -2
-#define FORCE_QUIT -3
-#define HW_FAULT -4
-
-/*STRUCTS*/
-// Structure for quick pin itteration
+// Structure for quick pin itteration (implemented in DandSMC.c)
 typedef struct {
     int pin;
     const char* name;
 }GPIO_Pins;
 
-// This is a constant structure of GPIO_Pins that relate specifically to the fault indicators
-static const GPIO_Pins faultIndicators[] = {
-    {FFAULT, "FFAULT"},
-    {MFAULT, "MFAULT"},
-    {ADCLPWR, "ADCLPWR"},
-    {ADCRPWR, "ADCRPWR"},
-};
-
-static const GPIO_Pins healthCheck[] = {
-    {MSLEEP,"MSLEEP"},
-    {MVEN, "MVEN"},
-    {MOTEN,"MOTEN"},
-    {FFAULT, "FFAULT"},
-    {MFAULT, "MFAULT"},
-    {ADCLPWR, "ADCLPWR"},
-    {ADCRPWR, "ADCRPWR"},
-};
-
-
-
 
 
 // DANDELIONS FUNCTION PROTOYPES-  
-void print_check(void);                             //Prints a message to the console
+
 esp_err_t setupHW(void);                            //Configures all the gpio/direction/pullmode/intr status
 
-void ADC_Pwr(bool en);
-void I2C_Init(void);
-void I2C_Scan();                                    //Looks for I2C devices over the bus and prints on console
-void Print_buffer(uint8_t* buf);
-void buf_to_int(uint8_t* buffer,  int size);        //Converts a buffer of uint8_t values to an array of int16_t values.
-void ADC_Read(uint8_t address);
+esp_err_t ADC_Pwr(bool en);
+esp_err_t I2C_Init(void);
+esp_err_t I2C_Scan();                                    //Looks for I2C devices over the bus and prints on console
 
-void EnMotor(bool en);                              //Enables the motor
-int RunMotor(bool dir, int ticks);                  //Runs a stepper motor for a specified number of steps in a specified direction.
+//esp_err_t buf_to_int(uint8_t* buffer,  int size);        //Converts a buffer of uint8_t values to an array of int16_t values.
+esp_err_t ADC_Read(uint8_t address);
 
-int updateExperimentCount(bool erase);
-void checkGPIOS(void);
-void checkMem(void);
-void checkADC(void);
-void checkCANctrl(void);
+esp_err_t EnMotor(bool en);                              //Enables the motor
+esp_err_t RunMotor(bool dir, int *ticks);                //Runs a stepper motor for a specified number of steps in a specified direction.
 
-void systemHealthCheck(void);
-void calibrate(void);
+esp_err_t checkGPIOS(void);
+esp_err_t checkMem(void);
+esp_err_t checkCANctrl(void);
+
+esp_err_t systemHealthCheck(void);
+esp_err_t calibrate(void);
 void PollFaultIndicatorsTask(void* pvParamemters);
-int RunExperiment(void);
+esp_err_t RunExperiment(int *phase, int* tick);         // input arguments are pointers to variabels that are saved in NVS in case of Emergency shut down. 
 
-void logError(const char* str);
-void logData(const char* info, ...);
-//void fileCreate(void);
+    
+
+esp_err_t updateExperimentCount(bool erase, int *count);      // going to edit this to take a pointer to be edited, so that the return type is not an int. 
+esp_err_t neutralise(int *phase, int *tick);
+esp_err_t setExperimentPhaseTicks(int *phase, int *ticks, bool reset);
+esp_err_t getExerpimentPhaseTicks(int *phase, int* ticks);
+
+    
+void logError(const char* info, ...); 
+
 
 #endif

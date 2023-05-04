@@ -77,6 +77,8 @@
     "typeinfo": "c",
     "esp_spiffs.h": "c",
     "nvs.h": "c",
-    "stdarg.h": "c"
+    "stdarg.h": "c",
+    "spi_master.h": "c",
+    "freertos.h": "c"
   }
 }
