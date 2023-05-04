@@ -74,6 +74,9 @@
     "streambuf": "c",
     "thread": "c",
     "cinttypes": "c",
-    "typeinfo": "c"
+    "typeinfo": "c",
+    "esp_spiffs.h": "c",
+    "nvs.h": "c",
+    "stdarg.h": "c"
   }
 }

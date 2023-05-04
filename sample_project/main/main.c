@@ -17,6 +17,8 @@
 #include "nvs_flash.h"
 #include <inttypes.h>
 #include "state.h"
+#include "esp_spiffs.h"
+#include <stdarg.h>
 
 //QUEUE
 QueueHandle_t experimentQueue = NULL;
@@ -69,8 +71,10 @@ void experimentTask(void*pvParameters){
             //printf("RUN:    Data received from the queue is : %c\n",c);     //Successful data recieved from queue
 
             printf("Experiment task: Start of Experiment\n\n");
+            // Read 2 ADC 
+            ADC_Read(ADC_ADDR_1);
+            ADC_Read(ADC_ADDR_2);
 
-            printf("REMOVED FOR NOW\n");
         }
         else{
             printf("RUN:    Data cannot be read through queue");
@@ -122,7 +126,7 @@ void triggerTask(void*pvParameters){
 
             // Read 2 ADC 
             ADC_Read(ADC_ADDR_1);
-            ADC_Read(ADC_ADDR_2);
+            ADC_Read(ADC_ADDR_2);               
 
 
             //Send to Queue
@@ -149,18 +153,15 @@ void triggerTask(void*pvParameters){
             xQueueSendToBack(experimentQueue, &c, portMAX_DELAY);
         }
         if (c == 'e') {
-            printf("Quick Experiment - Read ADC\n");
+            printf("Quick Experiment - Read and Log Data\n");
 
             // Delay for a short period to allow any pending tasks to complete.
             vTaskDelay(100 / portTICK_PERIOD_MS);
             
-               
             // Read 2 ADC 
-            ADC_Read(ADC_ADDR_3);
-            ADC_Read(ADC_ADDR_4);
-
-            //Log Stuff
-            logData("Log\n");
+            ADC_Read(ADC_ADDR_1);
+            ADC_Read(ADC_ADDR_2);
+            
 
             //Send to Queue
             xQueueSendToBack(experimentQueue, &c, portMAX_DELAY);

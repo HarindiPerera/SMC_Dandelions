@@ -2,6 +2,7 @@
 #define DANDSMC_H
 
 #include "esp_err.h"
+#include "esp_spiffs.h"
 
 
 #define DEBUG true                        // change this to change where messages go to
@@ -42,8 +43,6 @@
                     
 #define ADC_ADDR_1 0x6A                         //Device address 1101 | ADC1 : 100 |
 #define ADC_ADDR_2 0x6C                         //Device address 1101 | ADC2 : 010 |
-#define ADC_ADDR_3 0x68
-#define ADC_ADDR_4 0x69
 
 //uint8_t ADC_CH[] = {0X98 , 0XB8 , 0XD8 , 0XF8};
 
@@ -55,6 +54,10 @@
 
 #define SAMPLE_DELAY_MS 1000                    //delay between ADC samples in milliseconds
 #define WD_DELAY_MS 10
+
+
+
+
 
 // DANDELIONS ERROR CODES
 #define SUCCESS 1
@@ -88,6 +91,10 @@ static const GPIO_Pins healthCheck[] = {
     {ADCRPWR, "ADCRPWR"},
 };
 
+
+
+
+
 // DANDELIONS FUNCTION PROTOYPES-  
 void print_check(void);                             //Prints a message to the console
 esp_err_t setupHW(void);                            //Configures all the gpio/direction/pullmode/intr status
@@ -114,6 +121,7 @@ void PollFaultIndicatorsTask(void* pvParamemters);
 int RunExperiment(void);
 
 void logError(const char* str);
-void logData(const char* info);
+void logData(const char* info, ...);
+//void fileCreate(void);
 
 #endif

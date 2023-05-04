@@ -20,6 +20,9 @@
 #include "driver/i2c.h"
 #include <inttypes.h>
 #include <errno.h>
+#include "esp_spiffs.h"
+#include <stdarg.h>
+
 
 
 
@@ -32,7 +35,6 @@ void print_check(void)
 {
     printf("Print check\n");
 }
-
 
 
 /**
@@ -244,45 +246,48 @@ c. Send STOP or START bit.*/
  */
 void ADC_Read(uint8_t address)
 {
-
-    //18 bit CHANNEL INIT
-    uint8_t ADC_CH[] = {0X8F , 0XAF , 0XCF , 0XEF};
-    int ch_size = sizeof(ADC_CH)/sizeof(ADC_CH[0]);
+    //4 channel , 18bit , x8 gain , one shot config bytes
+    //uint8_t ADC_CH[] = {0X8F , 0XAF , 0XCF , 0XEF};
+    uint8_t configByte[]=  {0XCF , 0XDF , 0XEF , 0XFF};
+    int ch_size = sizeof(configByte)/sizeof(configByte[0]);
 
     //BUFFER INIT
-    uint8_t buf[18];
+    uint8_t buf[3];
     int buf_size = sizeof(buf)/sizeof(buf[0]);
-    memset(buf , 0 ,buf_size);                      //zeros all values in buffer
 
-    //I2C WRITE
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, address << 1 | I2C_MASTER_WRITE, true);
+    for (int j = 0 ; j < ch_size ; j++){    
+        
+        //ZERO EM ALL
+        memset(buf , 0 ,buf_size);                      //zeros all values in buffer
 
-    //4 CHANNEL WRITE
-    for (int j = 0 ; j < ch_size ; j++){
-        i2c_master_write_byte(cmd, ADC_CH[j], false); 
-    }
-    i2c_master_stop(cmd);
+        //I2C WRITE
+        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, address << 1 | I2C_MASTER_WRITE, true);
+        i2c_master_write_byte(cmd, configByte[j], false); 
+        i2c_master_stop(cmd);
 
-    //Implement I2C Comms
-    i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, 1000 / portTICK_PERIOD_MS );
-    i2c_cmd_link_delete(cmd);
-    vTaskDelay(SAMPLE_DELAY_MS / portTICK_PERIOD_MS);
+        //Implement I2C Comms
+        i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, 1000 / portTICK_PERIOD_MS );
+        i2c_cmd_link_delete(cmd);
+        vTaskDelay(SAMPLE_DELAY_MS / portTICK_PERIOD_MS);
 
-    //I2C READ
-    cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, address << 1 | I2C_MASTER_READ, true);
-    i2c_master_read(cmd, buf, buf_size, I2C_MASTER_LAST_NACK);
-    i2c_master_stop(cmd);
+        //I2C READ
+        cmd = i2c_cmd_link_create(); 
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, address << 1 | I2C_MASTER_READ, true);
 
-    //Implement I2C Comms
-    i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, 1000 / portTICK_PERIOD_MS );
-    i2c_cmd_link_delete(cmd);
+        for (int i = 0; i < buf_size; i++) {
+            uint8_t byte;
+            i2c_master_read_byte(cmd, &byte, (i == buf_size - 1) ? I2C_MASTER_LAST_NACK : I2C_MASTER_ACK);
+        }
 
-    //PRINT
-    Print_buffer(buf);
+        i2c_master_stop(cmd);
+        //Implement I2C Comms
+        i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, 1000 / portTICK_PERIOD_MS );
+        i2c_cmd_link_delete(cmd);
+        
+    }   
 
 }
 
@@ -565,13 +570,24 @@ void logError(const char* info)
 @brief Logs the given information to a 2d array and prints the entire array.
 @param info The information to be logged.
 */
-void logData(const char* info){
+/**
+
+@brief Logs the given information to a 2d array and prints the entire array.
+@param info The information to be logged.
+*/
+void logData(const char* info, ...){
 
     // create a 2D array with 100 rows and 100 columns each
     static char dataArray[100][100]; 
 
     //Last position tracking variable
-    static int lastPosition = 0; 
+    static int lastPosition = 0;
+    
+    //Variable arguments
+    va_list args;
+    va_start(args, info);
+    vfprintf(stdout, info, args);
+    va_end(args);
     
     //Find lenght of new string
     int len = strlen(info);
@@ -593,6 +609,25 @@ void logData(const char* info){
         printf("%s", dataArray[i]);
     }
 }
+
+/*void fileCreate() {
+    esp_vfs_spiffs_conf_t conf = {
+        .base_path = "/spiffs",
+        .partition_label = NULL,
+        .max_files = 5,
+        .format_if_mount_failed = true
+    };
+
+    // Initialize SPIFFS
+    esp_err_t ret = esp_vfs_spiffs_register(&conf);
+    if (ret != ESP_OK) {
+        // handle error
+        printf("config failed\n");
+    }
+}*/
+
+
+
 
 
 
