@@ -39,6 +39,8 @@ static const GPIO_Pins healthCheck[] = {
     {ADCRPWR, "ADCRPWR"},
 };
 
+
+
 /**
  *@brief Configures GPIO pins for input and output
  *This function initializes GPIO pins for input and output as specified by theioConfig parameter. The outputs are configured with no interrupts enabled,
@@ -106,8 +108,6 @@ esp_err_t setupHW(void){
     return ESP_OK;
 }
 
-
-
 /**
  * @brief Powers GPIO's for ADC
  * @param[in] en Boolean 1 = power on and 0 = power off
@@ -169,14 +169,14 @@ esp_err_t ADC_Pwr(bool en){
  */
 esp_err_t I2C_Init(void)
 {
-    ADC_Pwr(1);
+    
     esp_err_t rtn; 
     i2c_config_t conf;
     conf.mode = I2C_MODE_MASTER;                             //Set the I2C master mode
     conf.sda_io_num = I2C_SDA_PIN;                           //Assign the sda and scl pin numbers
     conf.scl_io_num = I2C_SCL_PIN;
-    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;                 //enable pullups but may need removal since we hw implemented this
-    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
+    //conf.sda_pullup_en = GPIO_PULLUP_ENABLE;                 //enable pullups but may need removal since we hw implemented this
+   // conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
     conf.master.clk_speed = I2C_MASTER_FREQ_HZ;              //set clock speed to 100kHz
 
     rtn = i2c_param_config(I2C_MASTER_NUM , &conf);                
@@ -198,7 +198,7 @@ esp_err_t I2C_Init(void)
         }
         return ESP_FAIL;
     }
-    ADC_Pwr(0);
+   
     //printf("ADC:    I2C Master Initialised\n");
     if(DEBUG){
             printf("I2C_Init(): - ESP_OK\n");
@@ -218,7 +218,7 @@ esp_err_t I2C_Init(void)
  */
 esp_err_t I2C_Scan()
 {
-    ADC_Pwr(1);
+   
 
     esp_err_t rtn = ESP_OK;
     uint8_t i2c_addresses[128];             //An array to hold the addresses
@@ -235,7 +235,7 @@ esp_err_t I2C_Scan()
         }
     }
 
-    ADC_Pwr(0);
+   
 
     if (DEBUG){
         printf("I2C_Scan(): Found %d I2C devices:\n", num_devices);
@@ -301,7 +301,7 @@ esp_err_t ADC_Read(uint8_t address)
 
     //ASSESS I2C FUNCTIONS AND THEIR PREEXISTING RETURN VALUES
     esp_err_t rtn = ESP_OK;
-    TickType_t ticks_to_wait = 1000;
+    //TickType_t ticks_to_wait = 1000;
 
     //4 channel config bytes
     //uint8_t configByte[]=  {0XCF , 0XDF , 0XEF , 0XFF};
@@ -326,10 +326,10 @@ esp_err_t ADC_Read(uint8_t address)
     
 
     //Implement I2C Comms
-    rtn |= i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, ticks_to_wait);
+    rtn |= i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, 500/portTICK_PERIOD_MS);
     if ( rtn!= ESP_OK ){
         //ESP_ERROR_CHECK(rtn);
-        printf("i2c_master_cmd_begin failed");
+        printf("i2c_master_cmd_begin failed\n");
     }
 
 
@@ -345,13 +345,12 @@ esp_err_t ADC_Read(uint8_t address)
     rtn |= i2c_master_read(read_cmd, buf, buf_size, I2C_MASTER_LAST_NACK);
     rtn |= i2c_master_stop(read_cmd);
     //Implement I2C Comms
-    rtn |= i2c_master_cmd_begin(I2C_MASTER_NUM ,read_cmd, ticks_to_wait);
+    rtn |= i2c_master_cmd_begin(I2C_MASTER_NUM ,read_cmd, 500/portTICK_PERIOD_MS);
     i2c_cmd_link_delete(read_cmd);
 
     return rtn;
           
 }
-
 
 /**
 
@@ -398,7 +397,7 @@ esp_err_t EnMotor(bool en){
  * 
  * @return An integer value indicating the result of the operation (`SUCCESS` for success, `HW_FAULT` for a hardware fault).
  */ 
-esp_err_t RunMotor(bool dir, int *ticks){
+esp_err_t RunMotor(bool dir, int *ticks, enum flowFlag *flowFlagPtr){
 
     esp_err_t err = ESP_OK;  
 ;    if ((*ticks) <=0 ){
@@ -435,7 +434,7 @@ esp_err_t RunMotor(bool dir, int *ticks){
     // IF there is any issue anywhere then the amount of ticks will be altered in the parent functions. 
 
     
-    for(esp_err_t mError =ESP_OK; (*ticks)>0 && mError==ESP_OK &&  gpio_get_level(GPIO_NUM_0)==1; (*ticks)-=1){
+    for(esp_err_t mError =ESP_OK; (*ticks)>0 && mError==ESP_OK &&  *flowFlagPtr == NOMINAL; (*ticks)-=1){
         mError |= gpio_set_level(MOTSTEP,1);
         vTaskDelay(5/portTICK_PERIOD_MS);
         mError |= gpio_set_level(MOTSTEP,0);
@@ -602,12 +601,6 @@ esp_err_t checkMem(void){
     
 }
 
-esp_err_t checkCANctrl(void){
-    printf("checkCANctrl function not implemented\n");
-    esp_err_t rtn = ESP_OK;
-    return rtn;
-}
-
 /**
 * @brief Calls a rang of functions that:
 * check the state of the GPIO's, 
@@ -626,15 +619,16 @@ esp_err_t systemHealthCheck(void){
     // It is the responsibility of the Calling function to make sure that everything is established 
 
     rtn |= checkGPIOS();   // Check the GPIO's
-    rtn |= checkCANctrl(); // Check Can Controller
     rtn |= checkMem();     // Check the memory avaliable
     i2cErr = I2C_Scan();   // find both the adcs.
 
     if(i2cErr == ESP_FAIL){
         rtn |= i2cErr;
-    }else if((i2cErr == ESP_OK)|(i2cErr == ESP_NONCRITICAL)){
+    }else if(i2cErr == ESP_NONCRITICAL){
         printf("systemHealthCheck(): One of the ADC's is down, But we must go on\n");
         rtn |= ESP_OK;      // Still opperate if one of the ADC's is down. 
+    }else{
+        rtn|= i2cErr;
     }
 
     if(rtn!=ESP_OK){
@@ -655,18 +649,7 @@ esp_err_t systemHealthCheck(void){
     return ESP_OK;
 }
 
-/**
- * @brief NOT YET IMPLEMENTED
-*/
-esp_err_t calibrate(){
-    
-    if(DEBUG){
-        printf("calibrate(): function not implemented\n");
-    }else{
-        logError("calibrate(): function not implemented\n");
-    }
-    return ESP_OK;
-}
+
 
 /**
  * @brief Task to poll fault indicators and print their status.
@@ -699,11 +682,10 @@ void PollFaultIndicatorsTask(void* pvParamemters){
  * @param NONE
  * @return Will return some type of fault if there is an issue with the the experiment NOT YET IMPLEMENTED
 */
-esp_err_t RunExperiment(int *phase, int *ticks){
+esp_err_t RunExperiment(int *phase, int *ticks, enum flowFlag *flowFlagPtr){
     
   // NOTE that if you are here then the prvious action centered the cariage. 
 
-    
     // when the experiment is running. create a task that allows for the polling of the Fault Indicator Pins. 
     TaskHandle_t FaultIndHandle;
     xTaskCreatePinnedToCore(
@@ -717,25 +699,18 @@ esp_err_t RunExperiment(int *phase, int *ticks){
         );   
 
     EnMotor(1);
-    ADC_Pwr(1);
 
     if(systemHealthCheck()!= ESP_OK){
         // Here we assume that the lower level function does the logging
         // If system Health Check fails we return a fail
         return ESP_FAIL;
     }
-    if(calibrate()!=ESP_OK){
-        // Assume that calibrate takes care of any logging. 
-        // If system cannot calibrate then system fails. 
-        return ESP_FAIL;
-    }
-
 
     // CREATE THE AMOUNT OF TICKS TO MOVE
     (*ticks) = TICKS_PER_REV*2;        
     (*phase) = 1;              // This is the phase of the experiment 
     // Run motor in the first direction
-    if(RunMotor(1,ticks) !=ESP_OK){
+    if(RunMotor(1,ticks,flowFlagPtr) !=ESP_OK){
         printf("There has been some motor issues\n");   // TODO -> make this an actuall thing 
     }
    // Add some condition to check the number of ticks. 
@@ -750,17 +725,15 @@ esp_err_t RunExperiment(int *phase, int *ticks){
         return ESP_NONCRITICAL;
     }
     // Take measurement 
-    //ADC_Read(ADC_ADDR_1);
-    //ADC_Read(ADC_ADDR_2);
-
-
+    ADC_Read(ADC_ADDR_1);
+    ADC_Read(ADC_ADDR_2);
 
     // Set the number of ticks for the second movement. 
     (*ticks) = 4*TICKS_PER_REV;     // set new tick amount 
     (*phase)+=1;                    // increment the phase
     
     // Run motor in the second direction
-    if(RunMotor(0,ticks) !=ESP_OK){
+    if(RunMotor(0,ticks,flowFlagPtr) !=ESP_OK){
         printf("There has been some motor issues\n");
     }
     // Add some condition to check the number of ticks. 
@@ -776,15 +749,15 @@ esp_err_t RunExperiment(int *phase, int *ticks){
     }
     
     // Take measurement 
-    //ADC_Read(ADC_ADDR_1);
-    //ADC_Read(ADC_ADDR_2);
+    ADC_Read(ADC_ADDR_1);
+    ADC_Read(ADC_ADDR_2);
 
 
     // Set the number of ticks for the third movement. 
     (*ticks) = 2*TICKS_PER_REV;     // Set (*ticks) for the last phase
     (*phase)+=1;                    // increment the phase
     // Run motor in the second direction
-    if(RunMotor(1,ticks) !=ESP_OK){
+    if(RunMotor(1,ticks,flowFlagPtr) !=ESP_OK){
         printf("There has been some motor issues\n");
     }
     // Add some condition to check the number of ticks. 
@@ -950,44 +923,64 @@ esp_err_t getExerpimentPhaseTicks(int *phase, int *ticks){
 }
 
 // takes the non-zero phase and tick and re-centers the cariage. 
-esp_err_t neutralise(int *phase, int *ticks){
+esp_err_t neutralise(int *phase, int *ticks, enum flowFlag *flowFlagPtr){
+
 
     printf("neutralise(): phase = %d, ticks = %d\n",(*phase),(*ticks));
     if((*phase) ==1 ){
         // move backward by MaxTicks - ticks
         *ticks = 2*TICKS_PER_REV - *ticks;
         EnMotor(1); 
-        RunMotor(0, ticks);
+        RunMotor(0, ticks,flowFlagPtr);
         EnMotor(0);
-        *phase = 0;     // reset phase after neutralisation.
+        if (*ticks ==0 ){
+            // neutralisation has been completed
+            *phase = 0;
+        }else{
+            *phase = 1;    // neutralisation was interupted
+        }
+        
     }else if ((*phase) == 2){
        if ((*ticks)>2*TICKS_PER_REV){
             // Move backward 2*TICKS_PER_REV - (4*TICKS_PER_REV - ticks)
             *ticks = 2*TICKS_PER_REV - (4*TICKS_PER_REV - *ticks);
             EnMotor(1);
-            RunMotor(0,ticks);
+            RunMotor(0,ticks,flowFlagPtr);
             EnMotor(0);
        }else if((*ticks<2*TICKS_PER_REV)){
             // Move forwards 2*TICKS_PER_REV - ticks
             *ticks = 2*TICKS_PER_REV - *ticks;
             EnMotor(1);
-            RunMotor(1,ticks);
+            RunMotor(1,ticks,flowFlagPtr);
             EnMotor(0);
        }else if((*ticks) == 2*TICKS_PER_REV){
             printf("Already neutralised\n");
        }
-       *phase = 0;     // reset phase after neutralisation.
+       if (*ticks == 0 ){
+            // neutralisation has been completed
+            *phase = 0;
+        }else{
+            *phase = 2;    // neutralisation was interupted
+        }
     }else if ((*phase) ==3){
         // Complete the remaining ticks to get to neutral
         EnMotor(1);         // enable motor
-        RunMotor(1, ticks);  
+        RunMotor(1, ticks, flowFlagPtr);  
         EnMotor(0);
-        *phase = 0;     // reset phase after neutralisation.
+         if (*ticks == 0 ){
+            // neutralisation has been completed
+            *phase = 0;
+        }else{
+            *phase = 3;    // neutralisation was interupted
+        }
     }else{
         printf("neutralise(): incompatible phase\n");
     }
-
-    
+    if(*phase != 0){
+        logError("Neutralisation was interupted\n ");
+    }else{
+        logError("neutralisation was successful\n");
+    }
     return ESP_OK;  
 }
 

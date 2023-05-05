@@ -28,7 +28,7 @@
 #define I2C_SCL_PIN 22                          //ESP32 SCL 22
 
 // GPIO ASSIGNMENT
-#define OUTPUT_BIT_MASK       0b000000000110100000000000000000000000
+#define OUTPUT_BIT_MASK       0b000000000110111000000000000000000000
 #define INPUT_BIT_MASK        0b110000000000000000000000000000000000
 #define INPUT_OUTPUT_BIT_MASK 0b001100001000000000110000000000000000
 // Pull Up and Pull down masks
@@ -63,21 +63,27 @@ typedef struct {
     const char* name;
 }GPIO_Pins;
 
+enum flowFlag {
+    GREENLIGHT,
+    NOMINAL,
+    ESD,
+    NO_DATA,
+}; 
 
 
 // DANDELIONS FUNCTION PROTOYPES-  
 
-esp_err_t setupHW(void);                            //Configures all the gpio/direction/pullmode/intr status
+esp_err_t setupHW(void);                                        //Configures all the gpio/direction/pullmode/intr status
 
 esp_err_t ADC_Pwr(bool en);
 esp_err_t I2C_Init(void);
-esp_err_t I2C_Scan();                                    //Looks for I2C devices over the bus and prints on console
+esp_err_t I2C_Scan();                                           //Looks for I2C devices over the bus and prints on console
 
-//esp_err_t buf_to_int(uint8_t* buffer,  int size);        //Converts a buffer of uint8_t values to an array of int16_t values.
+//esp_err_t buf_to_int(uint8_t* buffer,  int size);              //Converts a buffer of uint8_t values to an array of int16_t values.
 esp_err_t ADC_Read(uint8_t address);
 
-esp_err_t EnMotor(bool en);                              //Enables the motor
-esp_err_t RunMotor(bool dir, int *ticks);                //Runs a stepper motor for a specified number of steps in a specified direction.
+esp_err_t EnMotor(bool en);                                      //Enables the motor
+esp_err_t RunMotor(bool dir, int *ticks, enum flowFlag *flowFlagPtr);     //Runs a stepper motor for a specified number of steps in a specified direction.
 
 esp_err_t checkGPIOS(void);
 esp_err_t checkMem(void);
@@ -86,12 +92,12 @@ esp_err_t checkCANctrl(void);
 esp_err_t systemHealthCheck(void);
 esp_err_t calibrate(void);
 void PollFaultIndicatorsTask(void* pvParamemters);
-esp_err_t RunExperiment(int *phase, int* tick);         // input arguments are pointers to variabels that are saved in NVS in case of Emergency shut down. 
+esp_err_t RunExperiment(int *phase, int* tick, enum flowFlag *flowFlagPtr);      // input arguments are pointers to variabels that are saved in NVS in case of Emergency shut down. 
 
     
 
-esp_err_t updateExperimentCount(bool erase, int *count);      // going to edit this to take a pointer to be edited, so that the return type is not an int. 
-esp_err_t neutralise(int *phase, int *tick);
+esp_err_t updateExperimentCount(bool erase, int *count);                // going to edit this to take a pointer to be edited, so that the return type is not an int. 
+esp_err_t neutralise(int *phase, int *tick, enum flowFlag *flowFlagPtr);
 esp_err_t setExperimentPhaseTicks(int *phase, int *ticks, bool reset);
 esp_err_t getExerpimentPhaseTicks(int *phase, int* ticks);
 

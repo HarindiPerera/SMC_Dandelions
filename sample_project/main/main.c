@@ -49,12 +49,16 @@ void hwWDPulseTask(void* pvParamemters){
 }
 
 
-  
+
+
+
 
 //___________________________________________APP__MAIN_______________________________________________
 
 void app_main(void)
 {
+
+    // Setup
     xTaskCreatePinnedToCore(
         hwWDPulseTask,  
         "HWWATCHDOG",   /*Task Name*/
@@ -83,42 +87,58 @@ void app_main(void)
         esp_restart();
     }
 
+    // set the flowFlag to be nominal
+    enum flowFlag ctrlFlowFlag = NOMINAL;
+
+    // wait for greenlight 
+    while(ctrlFlowFlag != GREENLIGHT){
+        // in debug phase check the r key for greenlight 
+        if(DEBUG){
+            if(getchar()=='r'){
+                ctrlFlowFlag = GREENLIGHT;
+            }
+        }
+    
+        vTaskDelay(100/portTICK_PERIOD_MS);
+        // if no greenlight just chill here. 
+    }
+    if(ctrlFlowFlag == GREENLIGHT){
+        logError("Greenlit For exerpiment\n");
+        ctrlFlowFlag = NOMINAL;
+        ADC_Pwr(1);
+    }
+    
+    // initialise the i2cBuss
     I2C_Init();
 
-
-   // char c = '\n';
-    printf("R = Run experiment 8min approx\n");
+    // initialise the phase, tick and experiment count instantce. 
     int ticks = 0;
     int phase = 0;
     int experimentCount = 0;
 
+    if( ctrlFlowFlag == NOMINAL) {
+
+        getExerpimentPhaseTicks(&phase,&ticks);      // Check the previous phase and ticks 
+        if (phase !=0 || ticks !=0){
+            printf("main: Phase = %d, Tick = %d\n", phase,ticks);
+            neutralise(&phase,&ticks, &ctrlFlowFlag);        // if non-zero then neutralise and dont run experiment
+        }else{
+            RunExperiment(&phase, &ticks, &ctrlFlowFlag);    // else run the experiment
+        }
+        setExperimentPhaseTicks(&phase,&ticks,0);        // set the phase and ticks. 
+        if ((phase!=0)|(ticks!=0)){
+            ctrlFlowFlag = ESD;
+            logError("Motor actualtion terminated unexpectely\n"); 
+        }
+        // This is a 'just in case' condition
+        EnMotor(0);         
+        ADC_Pwr(0);         
+
+        updateExperimentCount(0,&experimentCount);
+    }
+
     for(;;){  
         vTaskDelay(100/portTICK_PERIOD_MS); // do nothing in the main loop 
-        
-        // If r is pressed then run the experiment 
-        if( getchar() == 'r') {
-
-            getExerpimentPhaseTicks(&phase,&ticks);      // Check the previous phase and ticks 
-            if (phase !=0 || ticks !=0){
-                printf("main: Phase = %d, Tick = %d\n", phase,ticks);
-                neutralise(&phase,&ticks);              // if non-zero then neutralise and dont run experiment
-            }else{
-                RunExperiment(&phase, &ticks);          // else run the experiment
-            }
-            setExperimentPhaseTicks(&phase,&ticks,0);       // set the phase and ticks. 
-            
-            
-            EnMotor(0);         // Disable Motor After experiment regardless of how it exits
-            ADC_Pwr(0);         // Diable ADC Power Just in case 
-
-            updateExperimentCount(0,&experimentCount);
-
-        }else if(getchar() == 't'){
-            setExperimentPhaseTicks(&phase,&ticks,1);       // reset set the phase and tick in nvs to 0;
-            updateExperimentCount(1,&experimentCount);      // reset the experiment count in nvs to 0
-        }else if(getchar() == 'q'){
-            esp_restart();
-        }
     }
 }
 
