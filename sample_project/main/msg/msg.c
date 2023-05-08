@@ -19,6 +19,8 @@
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <md5/global.h>
 #include <md5/md5.h>
 #include "msg.h"
@@ -27,6 +29,21 @@
 #include <canfdspi/drv_canfdspi_register.h>
 #include <spi/drv_spi.h>
 #include <isotp/iso_tp.h>
+
+/* Task handles*/
+TaskHandle_t TxHandle = NULL;
+
+typedef struct {
+    spi_device_handle_t* spi;
+} TxParams_t;
+
+/* Task functions*/
+void Tx(void *pvParameters){
+    spi_device_handle_t spi = ((TxParams_t*)pvParameters)->spi;
+         
+    handle_tx(spi);        
+}
+
 
 void SMC_FILTER_CONFIG(spi_device_handle_t* spi) {
     
@@ -202,14 +219,18 @@ void SMC_MESSAGE_HANDLER(spi_device_handle_t* spi) {
     CAN_RX_MSGOBJ rxObj;
     uint8_t rxd[MAX_DATA_BYTES] = {0};
 
-    if (!DRV_CAN_READ_OBJ(spi,rxd,&rxObj)){
+    if (!DRV_CAN_READ_OBJ(spi,&rxd,&rxObj)){
         switch (rxObj.bF.id.SID) {
-            case TIMESTAMP: get_timestamp(&rxd);
-            case SPACECRAFT_STATE: get_spacecraft_state(&rxd);
+           // case TIMESTAMP: get_timestamp(&rxd);
+            //case SPACECRAFT_STATE: get_spacecraft_state(rxd);
             case POWDWN_ALL | POWDWN: powerdown();
             case BEGIN: begin(&rxd);
             case CEASE: stop();
-            case QUERY: handle_tx(spi);
+            case QUERY: {
+                // Query Response                
+                TxParams_t txParams = {.spi = spi};
+                xTaskCreate(Tx,"Tx",8192,&txParams,1,&TxHandle);
+            };
             case RECEIVE_CMD: handle_rx(spi,rxd);
             // These cases will only occur during data transmission -> handled in handle_quer();
             // case TRANSMIT_CMD: break;
@@ -220,16 +241,17 @@ void SMC_MESSAGE_HANDLER(spi_device_handle_t* spi) {
     }        
 }
 
-// void get_timestamp(uint8_t* rxd) {
-//     // this can also be a pointer to the timestamp saved somewhere in the main run file?
-//     uint64_t timestamp = 0;
+ //void get_timestamp(uint8_t* rxd) {
+     // this can also be a pointer to the timestamp saved somewhere in the main run file?
+    // uint64_t timestamp = 0;
 
-//     memcpy(timestamp, rxd, sizeof(uint64_t));
+   //  memcpy(timestamp, rxd, sizeof(uint64_t));
 
-//     // invoke interrupt to save new timestamp?
+     // invoke interrupt to save new timestamp?
 // }
 
 // Alternative
+/*
 void get_timestamp(uint8_t* rxd) {
     struct timeval tv;
     
@@ -240,26 +262,53 @@ void get_timestamp(uint8_t* rxd) {
     tv.tv_usec = (usecs%1000)*1000;
 
     settimeofday(&tv, NULL);
-    printf("Time set to %ld.%06ld", tv.tv_sec, tv.tv_usec);
+    printf("Time set to %ld.%06ld\n\n", tv.tv_sec, (long int)tv.tv_usec);
 }
 
 // Same as above, probably not needed
-void get_spacecraft_state(uint8_t* rxd) {
+void get_spacecraft_state(uint8_t rxd[MAX_DATA_BYTES]) {
     Spacecraft_State state = {0};
 
     memcpy(&state, rxd, sizeof(Spacecraft_State));
-}
+    for (int i = 0; i < sizeof(Spacecraft_State); i++)
+    {
+        printf("%02x ",rxd[i]);
+    }
+    printf("\n");
 
+     printf("Spacecraft State:\n"
+        "lat:%f\n"
+        "lon:%f\n"
+        "alt:%f\n"
+        "roll:%f\n"
+        "pitch:%f\n"
+        "heading:%f\n"
+        "vel_n:%f\n"
+        "vel_e:%f\n"
+        "vel_d:%f\n"
+        "ang_vel_x:%f\n"
+        "ang_vel_y:%f\n"
+        "ang_vel_z:%f\n\n",
+        state.Latitude, state.Longitude, state.Altitude, state.Roll, state.Pitch, state.Heading, state.Velocity_N, state.Velocity_E, state.Velocity_D, state.Angular_VX, state.Angular_VY, state.Angular_VZ);
+        
+
+}
+*/
 void powerdown() {
     // Invoke interrupt to start powerdown of spacecraft
+    printf("Powering down spacecraft\n\n");
+    vTaskDelete(NULL);
 }
 
 void begin(uint8_t* rxd) {
     // Invoke interrupt to start operation
+    printf("Starting operation\n\n");
 }
 
 void stop() {
     // Invoke interrupt to cease operation
+    printf("Stopping operation\n\n");
+    vTaskDelete(TxHandle);
 }
 
 void handle_tx(spi_device_handle_t* spi) {
@@ -276,11 +325,11 @@ void handle_tx(spi_device_handle_t* spi) {
     uint8_t digest[MD5_DIGEST_LENGTH];
     MD5(digest, &data, sizeof(data));
 
-    uint8_t* reply = (uint8_t*) malloc(sizeof(data)); // allocate memory for data
+    uint8_t* reply = (uint8_t*) malloc(sizeof(data_len)); // allocate memory for data
 
     memcpy(reply,digest,MD5_DIGEST_LENGTH);
 
-    memcpy(reply+MD5_DIGEST_LENGTH,name,name_len);
+   // memcpy(reply+MD5_DIGEST_LENGTH,name,name_len); //PATRICK
 
     DRV_CAN_WRITE(spi,reply,RESPONSE,CAN_DLC_64);
 

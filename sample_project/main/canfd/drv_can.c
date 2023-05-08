@@ -119,6 +119,10 @@ void DRV_CAN_INIT(spi_device_handle_t* spi) {
         txfConfig.TxPriority = 1;
         ret = DRV_CANFDSPI_TransmitChannelConfigure(spi, CAN_FIFO_CH1, &txfConfig);
 
+        v = !ret;
+    }
+    while (!v) {
+        uint8_t ret = 0;
         // FIFO 2: Receive FIFO; 16 messages, 64 byte maximum payload, time stamping enabled
         CAN_RX_FIFO_CONFIG rxfConfig;
         rxfConfig.FifoSize = 15;
@@ -144,7 +148,7 @@ bool DRV_CAN_READ(spi_device_handle_t* spi, uint8_t* rxd) {
 
     DRV_CANFDSPI_ReceiveChannelEventGet(spi, CAN_FIFO_CH2, &rxFlags);
 
-    printf("rxflag: %X\n",rxFlags);
+    // printf("rxflag: %X\n",rxFlags);
 
     if (rxFlags & CAN_RX_FIFO_NOT_EMPTY_EVENT) {
         // Read message and UINC
@@ -166,7 +170,7 @@ int DRV_CAN_READ_OBJ(spi_device_handle_t* spi, uint8_t* rxd, CAN_RX_MSGOBJ* rxOb
 
     DRV_CANFDSPI_ReceiveChannelEventGet(spi, CAN_FIFO_CH2, &rxFlags);
 
-    printf("rxflag: %X\n",rxFlags);
+    // printf("rxflag: %X\n",rxFlags);
 
     if (rxFlags & CAN_RX_FIFO_NOT_EMPTY_EVENT) {
         // Read message and UINC

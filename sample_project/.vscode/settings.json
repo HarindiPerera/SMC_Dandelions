@@ -79,6 +79,7 @@
     "nvs.h": "c",
     "stdarg.h": "c",
     "spi_master.h": "c",
-    "freertos.h": "c"
+    "freertos.h": "c",
+    "drv_canfdspi_api.h": "c"
   }
 }

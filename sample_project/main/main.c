@@ -4,6 +4,8 @@
  * 2023
 */
 #include <stdio.h>
+#include "DandSMC.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -12,7 +14,7 @@
 #include "sdkconfig.h"
 #include "esp_system.h"
 #include "esp_err.h"
-#include "DandSMC.h"
+
 #include "nvs.h"
 #include "nvs_flash.h"
 #include <inttypes.h>
@@ -20,6 +22,12 @@
 #include "esp_spiffs.h"
 #include <stdarg.h>
 #include <driver/spi_master.h>
+#include "canfdspi/drv_canfdspi_api.h"
+#include "spi/drv_spi.h"
+#include "canfd/drv_can.h"
+#include "msg/msg.h"
+#include "md5/md5.h"
+#include "isotp/iso_tp.h"
 
 /**
  * @brief Task to feed the hardware watchdog every 5 seconds.
@@ -49,6 +57,25 @@ void hwWDPulseTask(void* pvParamemters){
 }
 
 
+void Listen(void *pvParameters){
+    spi_device_handle_t spi = *((TaskParams_t*)pvParameters)->spi;
+    for (;;) 
+    {
+        // sleep(1);
+        SMC_MESSAGE_HANDLER(&spi);
+    }    
+}
+
+/*void checkListenState(TaskHandle_t ListenHandle ) {
+  while(1) {
+    eTaskState state = eTaskGetState(ListenHandle);
+    if(state == eDeleted) {
+      printf("Task deleted successfully\n");
+      break;
+    }
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }
+}*/
 
 
 
@@ -67,7 +94,9 @@ void app_main(void)
         16,             /*Priority*/
         NULL,           /*ret handel*/
         1               /*core*/
-    );                
+    ); 
+
+                  
 
     // initilise nvr partition
     esp_err_t err = nvs_flash_init();
@@ -86,6 +115,45 @@ void app_main(void)
         vTaskDelay(2000/portTICK_PERIOD_MS);
         esp_restart();
     }
+
+    //SPI CONFIG
+    esp_err_t ret;
+    spi_device_handle_t spi_0;
+    spi_device_handle_t spi_1;
+    spi_bus_config_t buscfg_0={
+        .miso_io_num=PIN_NUM_MISO,
+        .mosi_io_num=PIN_NUM_MOSI,
+        .sclk_io_num=PIN_NUM_CLK,
+        .max_transfer_sz=4096,
+        
+    };
+    
+    //SPI DEVICE CONFIG
+    spi_device_interface_config_t devcfg_1={
+        .clock_speed_hz=10*1000*1000,           //Clock out at 10 MHz
+        .mode=3,                                //SPI mode 0
+        .spics_io_num=PIN_NUM_CS,               //CS pin
+        .command_bits=4,                        //Command Size
+        .address_bits=12,                       //Address Size
+        .queue_size=100,                        //Queue Size
+    };
+
+    
+
+    // patrick main
+    
+
+    
+    // SMC Test Code for Dandelions side
+    //TaskParams_t params = {.spi = spi_1};
+    //TaskHandle_t ListenHandle = NULL;
+    //TaskHandle_t Task2Handle = NULL; 
+
+    //xTaskCreate(Listen,"Listen",8192,&params,1,&ListenHandle);
+
+
+
+    //////////////////////////
 
     // set the flowFlag to be nominal
     enum flowFlag ctrlFlowFlag = NOMINAL;

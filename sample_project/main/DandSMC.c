@@ -21,6 +21,16 @@
 #include <inttypes.h>
 #include <errno.h>
 #include <stdarg.h>
+#include "canfdspi/drv_canfdspi_api.h"
+#include "spi/drv_spi.h"
+#include "canfd/drv_can.h"
+#include "msg/msg.h"
+#include "md5/md5.h"
+#include "isotp/iso_tp.h"
+#include "driver/spi_master.h"
+#include "time.h"
+#include "driver/spi_master.h"
+
 
 static const GPIO_Pins faultIndicators[] = {
     {FFAULT, "FFAULT"},
@@ -39,6 +49,131 @@ static const GPIO_Pins healthCheck[] = {
     {ADCRPWR, "ADCRPWR"},
 };
 
+
+
+/* Task functions*/
+
+
+
+/*void SMC_Timestamp(spi_device_handle_t* spi){
+    
+    struct timeval tv;
+    _gettimeofday_r(&tv, NULL);
+    uint64_t time_ms = (tv.tv_sec) * 1000 + (tv.tv_usec) / 1000 ;
+    
+    printf("Timestamp: %llu\n",time_ms);
+
+    DRV_CAN_WRITE(spi,(uint8_t*) &time_ms,TIMESTAMP,CAN_DLC_64);
+}*/
+
+/*void SMC_Spacecraft_State(spi_device_handle_t* spi){
+    
+    Spacecraft_State state = {
+        .Latitude = 0.0,
+        .Longitude = 1.0,
+        .Altitude = 2.0,
+        .Roll = 3.0,
+        .Pitch = 4.0,
+        .Heading = 5.0,
+        .Velocity_N = 6.0,
+        .Velocity_E = 7.0,
+        .Velocity_D = 8.0,
+        .Angular_VX = 9.0,
+        .Angular_VY = 10.0,
+        .Angular_VZ = 11.0,
+    };
+
+    printf("%d",sizeof(Spacecraft_State));
+    printf("Spacecraft State:\n"
+        "lat:%f\n"
+        "lon:%f\n"
+        "alt:%f\n"
+        "roll:%f\n"
+        "pitch:%f\n"
+        "heading:%f\n"
+        "vel_n:%f\n"
+        "vel_e:%f\n"
+        "vel_d:%f\n"
+        "ang_vel_x:%f\n"
+        "ang_vel_y:%f\n"
+        "ang_vel_z:%f\n\n",
+        state.Latitude, state.Longitude, state.Altitude, state.Roll, state.Pitch, state.Heading, state.Velocity_N, state.Velocity_E, state.Velocity_D, state.Angular_VX, state.Angular_VY, state.Angular_VZ);
+
+    uint8_t* s = malloc(sizeof(Spacecraft_State));
+    memcpy(s,&state,sizeof(Spacecraft_State));
+
+    DRV_CAN_WRITE(spi,s,SPACECRAFT_STATE,CAN_DLC_64);
+
+    free(s);
+}
+*/
+
+void SMC_PowerDown(spi_device_handle_t* spi){
+    // printf("Powering down...\n");
+    uint8_t nil = 0;
+    DRV_CAN_WRITE(spi,&nil,POWDWN,CAN_DLC_64);
+    // DRV_CAN_WRITE(spi,NULL,POWDWN,CAN_DLC_64);
+}
+
+void SMC_BeginOperation(spi_device_handle_t* spi){
+    // printf("Ready to operate...\n");
+    uint8_t nil = 0;
+    DRV_CAN_WRITE(spi,&nil,BEGIN,CAN_DLC_64);
+}
+
+void SMC_CeaseOperation(spi_device_handle_t* spi){
+    // printf("Ending operation...\n");
+    uint8_t nil = 0;
+    DRV_CAN_WRITE(spi,&nil,CEASE,CAN_DLC_64);
+    // DRV_CAN_WRITE(spi,NULL,CEASE,CAN_DLC_64);
+}
+
+void SMC_PowerDownAll(spi_device_handle_t* spi){
+    // printf("Powering down all...\n");
+    uint8_t nil = 0;
+    DRV_CAN_WRITE(spi,&nil,POWDWN_ALL,CAN_DLC_64);
+    // DRV_CAN_WRITE(spi,NULL,POWDWN_ALL,CAN_DLC_64);
+}
+
+void SMC_Query(spi_device_handle_t* spi){
+    printf("Querying...\n");
+    uint8_t nil = 0;
+    DRV_CAN_WRITE(spi,&nil,QUERY,CAN_DLC_64);
+    // DRV_CAN_WRITE(spi,NULL,QUERY,CAN_DLC_64);
+}
+
+void SMC_Transmit(spi_device_handle_t* spi){
+    printf("Transmitting...\n");
+    uint8_t nil = 0;
+    DRV_CAN_WRITE(spi,&nil,TRANSMIT,CAN_DLC_64);
+    // DRV_CAN_WRITE(spi,NULL,TRANSMIT_CMD,CAN_DLC_64);
+}
+
+void SMC_Flow(spi_device_handle_t* spi){
+    // printf("Flowing...\n");
+    iso_tp_control_t control = {
+        .flow = CONTINUE,
+        .block_size = 1,
+        .sep_time = 0,
+        .num_segments = 0,
+        .index = 0,
+        .pci = 0,
+    };
+    DRV_CAN_WRITE(spi,(uint8_t*) &control,TRANSMIT_FLOW,CAN_DLC_64);
+}
+
+void SMC_Result(spi_device_handle_t* spi){
+    // printf("Resulting...\n");
+    uint8_t nil = 0;
+    DRV_CAN_WRITE(spi,&nil,TRANSMIT_RESULT,CAN_DLC_64);
+}
+
+void print_bits2(uint8_t n) {
+    for (int i = 7; i >= 0; i--) {
+        printf("%d", (n >> i) & 1);
+    }
+    printf("\n");
+}
 
 
 /**
@@ -282,74 +417,6 @@ esp_err_t I2C_Scan()
             logError("I2C_Scan(): All devices found - ESP_OK\n");
         }
     return ESP_OK;
-}
-
-/**
- * @brief Reads ADC value over I2C.
- *This function sends a command over channel 0 to adc. Waits for 
- conversation and reads value over adc.
- Variables that can be set :
-
-• Conversion bit resolution: 12 bits
-• Input channel selection: CH1 , CH2 , CH3 , or CH4
-• PGA Gain selection: x1, x2, x4, or x8
-• Continuous or one-shot conversion 
- * @return 18bit signed integer values
- */
-esp_err_t ADC_Read(uint8_t address)
-{
-
-    //ASSESS I2C FUNCTIONS AND THEIR PREEXISTING RETURN VALUES
-    esp_err_t rtn = ESP_OK;
-    //TickType_t ticks_to_wait = 1000;
-
-    //4 channel config bytes
-    //uint8_t configByte[]=  {0XCF , 0XDF , 0XEF , 0XFF};
-    
-    int ch_size = 4;
-    uint8_t configByte[]=  {0XCF , 0XDF , 0XEF , 0XFF};
-    printf("channel numbers : %d\n" , ch_size );
-
-    //BUFFER INIT
-    const uint8_t buf_size = 3;
-    uint8_t buf[buf_size];
-    //ZERO EM ALL
-    memset(buf , 0 ,buf_size);                      //zeros all values in buffer
-
-    //I2C WRITE
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-
-    rtn |= (i2c_master_start(cmd)<<1);  
-    rtn |= i2c_master_write_byte(cmd, address << 1 | I2C_MASTER_WRITE, true);         
-    rtn |= i2c_master_write_byte(cmd, configByte[0], false);
-    rtn |= i2c_master_stop(cmd);
-    
-
-    //Implement I2C Comms
-    rtn |= i2c_master_cmd_begin(I2C_MASTER_NUM ,cmd, 500/portTICK_PERIOD_MS);
-    if ( rtn!= ESP_OK ){
-        //ESP_ERROR_CHECK(rtn);
-        printf("i2c_master_cmd_begin failed\n");
-    }
-
-
-    i2c_cmd_link_delete(cmd);
-     
-
-    vTaskDelay(SAMPLE_DELAY_MS / portTICK_PERIOD_MS);
-
-    //I2C READ
-    i2c_cmd_handle_t read_cmd = i2c_cmd_link_create(); 
-    rtn |= i2c_master_start(read_cmd);
-    rtn |= i2c_master_write_byte(read_cmd, address << 1 | I2C_MASTER_READ, true);
-    rtn |= i2c_master_read(read_cmd, buf, buf_size, I2C_MASTER_LAST_NACK);
-    rtn |= i2c_master_stop(read_cmd);
-    //Implement I2C Comms
-    rtn |= i2c_master_cmd_begin(I2C_MASTER_NUM ,read_cmd, 500/portTICK_PERIOD_MS);
-    i2c_cmd_link_delete(read_cmd);
-
-    return rtn;
-          
 }
 
 /**
@@ -649,7 +716,63 @@ esp_err_t systemHealthCheck(void){
     return ESP_OK;
 }
 
+/**
+ * @brief Reads ADC value over I2C.
+ *This function sends a command over channel 0 to adc. Waits for 
+ conversation and reads value over adc.
+ Variables that can be set :
 
+• Conversion bit resolution: 12 bits
+• Input channel selection: CH1 , CH2 , CH3 , or CH4
+• PGA Gain selection: x1, x2, x4, or x8
+• Continuous or one-shot conversion 
+ * @return 18bit signed integer values
+ */
+esp_err_t ADC_Read(uint8_t address , int Channel)
+{
+    //uint8_t configByte[] = {0xCF, 0xDF, 0xEF, 0xFF};
+    uint8_t configByte[] = {0X98 , 0XB8 , 0XD8 , 0XF8};
+    uint8_t readBuffer[3];
+    esp_err_t rtn = ESP_OK;
+    //I2C WRITE CONFIG
+    i2c_cmd_handle_t cmd;
+    cmd = i2c_cmd_link_create();
+    rtn |=i2c_master_start(cmd);
+    rtn |=i2c_master_write_byte(cmd, address << 1 | I2C_MASTER_WRITE, true);
+    rtn |= i2c_master_write_byte(cmd, configByte[Channel], true);
+    rtn |=i2c_master_stop(cmd);
+    rtn |= i2c_master_cmd_begin(I2C_NUM_0, cmd, 500 / portTICK_PERIOD_MS);
+    i2c_cmd_link_delete(cmd);
+    vTaskDelay(SAMPLE_DELAY_MS / portTICK_PERIOD_MS);
+    //I2C READ BYTE
+    cmd = i2c_cmd_link_create();
+    rtn |=i2c_master_start(cmd);
+    rtn |=i2c_master_write_byte(cmd, address << 1 | I2C_MASTER_READ, true);
+    rtn |=i2c_master_read_byte(cmd, &readBuffer[0], I2C_MASTER_ACK);
+    rtn |=i2c_master_read_byte(cmd, &readBuffer[1], I2C_MASTER_ACK);
+    rtn |=i2c_master_read_byte(cmd, &readBuffer[2], I2C_MASTER_NACK);
+    rtn |=i2c_master_stop(cmd);
+    rtn |=i2c_master_cmd_begin(I2C_NUM_0, cmd, 500 / portTICK_PERIOD_MS);
+    //Check Error
+    if (rtn != ESP_OK)
+    {
+        printf("Error code: %s\n", esp_err_to_name(rtn));
+        rtn = ESP_OK;
+    }
+    i2c_cmd_link_delete(cmd);
+    //Convert to int16_t
+    int16_t result = (int16_t)(((readBuffer[0] & 0x03) << 16) | (readBuffer[1] << 8) | readBuffer[2]);
+    //LOG INTO FILE
+    if(DEBUG){
+        printf("Channel %d : %d\n" , Channel+1, result );
+        vTaskDelay(100/portTICK_PERIOD_MS);
+    }else{
+        char str[64];
+        printf(str, "Channel %d : %d\n" , Channel+1, result);
+        logError(str);
+    }
+    return rtn;
+}
 
 /**
  * @brief Task to poll fault indicators and print their status.
@@ -698,6 +821,9 @@ esp_err_t RunExperiment(int *phase, int *ticks, enum flowFlag *flowFlagPtr){
         1                           // Core that it is pinned to
         );   
 
+    //Create Buffer for ADC adresses
+    uint8_t ADC[] = {ADC_ADDR_1 ,ADC_ADDR_2 };
+
     EnMotor(1);
 
     if(systemHealthCheck()!= ESP_OK){
@@ -724,9 +850,22 @@ esp_err_t RunExperiment(int *phase, int *ticks, enum flowFlag *flowFlagPtr){
         }
         return ESP_NONCRITICAL;
     }
+
     // Take measurement 
-    ADC_Read(ADC_ADDR_1);
-    ADC_Read(ADC_ADDR_2);
+     for (int i = 0 ; i < 2 ; i++){
+        if(DEBUG){
+            printf("ADC Address 0x%02x\n" , ADC[i]);
+            vTaskDelay(100/portTICK_PERIOD_MS);
+        }else{
+            char str[64];
+            sprintf(str, "ADC Address 0x%02x\n" , ADC[i]);
+            logError(str);
+        }
+        for (int channel = 0 ; channel < 4  ; channel ++ ){
+            ADC_Read(ADC[i] , channel);
+            vTaskDelay(200/portTICK_PERIOD_MS);
+        }
+    }
 
     // Set the number of ticks for the second movement. 
     (*ticks) = 4*TICKS_PER_REV;     // set new tick amount 
@@ -749,8 +888,20 @@ esp_err_t RunExperiment(int *phase, int *ticks, enum flowFlag *flowFlagPtr){
     }
     
     // Take measurement 
-    ADC_Read(ADC_ADDR_1);
-    ADC_Read(ADC_ADDR_2);
+     for (int i = 0 ; i < 2 ; i++){
+        if(DEBUG){
+            printf("ADC Address 0x%02x\n" , ADC[i]);
+            vTaskDelay(100/portTICK_PERIOD_MS);
+        }else{
+            char str[64];
+            sprintf(str, "ADC Address 0x%02x\n" , ADC[i]);
+            logError(str);
+        }
+        for (int channel = 0 ; channel < 4  ; channel ++ ){
+            ADC_Read(ADC[i] , channel);
+            vTaskDelay(200/portTICK_PERIOD_MS);
+        }
+    }
 
 
     // Set the number of ticks for the third movement. 
@@ -1023,22 +1174,5 @@ void logError(const char* info, ...){
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/////
+//Patrcik implemetation

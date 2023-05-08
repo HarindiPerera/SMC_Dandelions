@@ -55,6 +55,7 @@ DIRECTLY TO MICROCHIP FOR THIS SOFTWARE.
 #include "driver/spi_common.h"
 #include "driver/gpio.h"
 #include <string.h>
+#include <msg/msg.h>
 
 // *****************************************************************************
 // *****************************************************************************
@@ -145,7 +146,7 @@ int8_t DRV_CANFDSPI_Reset(spi_device_handle_t* spi)
     t.length = 16;
     t.user = (void*)1;
 
-    int8_t spiTransferError = spi_device_transmit_cs(spi,&t);
+    int8_t spiTransferError = spi_device_transmit(spi,&t); //patrick
 
     return spiTransferError;
 }
@@ -814,12 +815,12 @@ int8_t DRV_CANFDSPI_TransmitChannelConfigure(spi_device_handle_t* spi,
 
     a = cREGADDR_CiFIFOCON + (channel * CiFIFO_OFFSET);
 
-    printf("%X\n",ciFifoCon.word);
+    //printf("%X\n",ciFifoCon.word);
     spiTransferError = DRV_CANFDSPI_WriteWord(spi, a, ciFifoCon.word);
     
     sleep(1);
     spiTransferError |= DRV_CANFDSPI_ReadWord(spi, a, &ciFifoConVal.word);
-    printf("%X\n",ciFifoConVal.word);
+    //printf("%X\n",ciFifoConVal.word);
 
     spiTransferError |= memcmp(&ciFifoCon,&ciFifoConVal,sizeof(REG_CiFIFOCON));
     return spiTransferError;
@@ -1313,12 +1314,12 @@ int8_t DRV_CANFDSPI_ReceiveChannelConfigure(spi_device_handle_t* spi,
 
     a = cREGADDR_CiFIFOCON + (channel * CiFIFO_OFFSET);
 
-    printf("%X\n",ciFifoCon.word);
+    //printf("%X\n",ciFifoCon.word);
     spiTransferError = DRV_CANFDSPI_WriteWord(spi, a, ciFifoCon.word);
     
     sleep(1);
     spiTransferError |= DRV_CANFDSPI_ReadWord(spi, a, &ciFifoConVal.word);
-    printf("%X\n",ciFifoConVal.word);
+    //printf("%X\n",ciFifoConVal.word);
 
     spiTransferError |= memcmp(&ciFifoCon,&ciFifoConVal,sizeof(REG_CiFIFOCON));
 
@@ -1419,7 +1420,7 @@ int8_t DRV_CANFDSPI_ReceiveMessageGet(spi_device_handle_t* spi,
         n = MAX_MSG_SIZE;
     }
 
-    printf("n:%d\n",n);
+    // printf("n:%d\n",n);
 
     spiTransferError = DRV_CANFDSPI_ReadByteArray(spi, a, ba, n);
     if (spiTransferError) {
@@ -3650,11 +3651,11 @@ int8_t DRV_CANFDSPI_GpioModeConfigure(spi_device_handle_t* spi,
     uint16_t a = 0;
 
     // Read
-    a = cREGADDR_IOCON + 3;
+    a = cREGADDR_IOCON + 2;
     REG_IOCON iocon;
     iocon.word = 0;
 
-    spiTransferError = DRV_CANFDSPI_ReadByte(spi, a, &iocon.byte[3]);
+    spiTransferError = DRV_CANFDSPI_ReadByte(spi, a, &iocon.byte[2]);
     if (spiTransferError) {
         return -1;
     }
@@ -3664,7 +3665,7 @@ int8_t DRV_CANFDSPI_GpioModeConfigure(spi_device_handle_t* spi,
     iocon.bF.PinMode1 = gpio1;
 
     // Write
-    spiTransferError = DRV_CANFDSPI_WriteByte(spi, a, iocon.byte[3]);
+    spiTransferError = DRV_CANFDSPI_WriteByte(spi, a, iocon.byte[2]);
     if (spiTransferError) {
         return -2;
     }

@@ -5,8 +5,7 @@
     Dandelions
 
   File Name:
-    smc_messages.h
-
+    smc.c
 
   Summary:
     API implementation.
@@ -15,7 +14,10 @@
     .
  *******************************************************************************/
 
-//#include "canfd/drv_can.h"
+#ifndef MSG_H
+#define MSG_H
+
+#include "canfd/drv_can.h"
 
 #define MD5_DIGEST_LENGTH 16
 
@@ -68,7 +70,7 @@
 // Receive Transmission Result
 #define RX_RESULT 0x509
 
-typedef struct {
+/*typedef struct {
     double Latitude;
     double Longitude;
     double Altitude;
@@ -82,7 +84,7 @@ typedef struct {
     float Angular_VY;
     float Angular_VZ;
 } Spacecraft_State;
-
+*/
 typedef struct {
     uint16_t md5;
     char* name;
@@ -92,9 +94,9 @@ void SMC_FILTER_CONFIG(spi_device_handle_t* spi);
 
 void SMC_MESSAGE_HANDLER(spi_device_handle_t* spi);
 
-void get_timestamp(uint8_t* rxd);
+//void get_timestamp(uint8_t* rxd);
 
-void get_spacecraft_state(uint8_t* rxd);
+//void get_spacecraft_state(uint8_t* rxd);
 
 void powerdown();
 
@@ -105,3 +107,5 @@ void stop();
 void handle_tx(spi_device_handle_t* spi);
 
 void handle_rx(spi_device_handle_t* spi, uint8_t* rxd);
+
+#endif  
