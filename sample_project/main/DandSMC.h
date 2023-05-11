@@ -27,7 +27,7 @@
 #define I2C_SDA_PIN 21                          //ESP32 SDA 21  
 #define CAN_INT 19
 
-//#define PIN_NUM_RST  18   // TODO -> SOME ERROR HERE PIN ALREADY USED ask patrick
+//#define PIN_NUM_RST  18   // NOT USED
 
 #define ADCRPWR 17                              //Right ADC power on gpio 17
 #define ADCLPWR 16                              //Left ADC power on gpio 16
@@ -36,11 +36,11 @@
 #define PIN_NUM_MOSI 13
 #define PIN_NUM_MISO 12
 
-//#define PIN_NUM_BCKL 5    // TODO -> SOME ERROR HERE PIN ALREADY USED ask patrick
+//#define PIN_NUM_BCKL 5    // NOT USED
 #define DBCON 4
 
 
-//#define PIN_NUM_DC   21     // TODO -> SOME ERROR HERE PIN ALREADY USED ask patrick
+//#define PIN_NUM_DC   21     // NOT USED
 
 
 
@@ -49,8 +49,8 @@
 #define INPUT_BIT_MASK        0b110000000000000000000000000000000000
 #define INPUT_OUTPUT_BIT_MASK 0b001100001000000000111111000000000000    //Set up spi pins 12 13 14 15
 // Pull Up and Pull down masks
-#define PU_MASK               0b110000000000011000001000000000000000
-#define PD_MASK               0b001100001110100000110000000000000000
+#define PU_MASK               0b11000000000001100000 1000 0000 0000 0000
+#define PD_MASK               0b00110000111010000011 0000 0000 0000 0000
 #define PP_MASK 
 
 
@@ -102,7 +102,7 @@ enum flowFlag {
     NO_DATA,
 }; 
 
-
+// Patrick Task Params struct
 typedef struct {
     spi_device_handle_t* spi;
 } TaskParams_t;

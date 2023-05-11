@@ -49,6 +49,7 @@ DIRECTLY TO MICROCHIP FOR THIS SOFTWARE.
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include "driver/spi_master.h"
 
 
 // DOM-IGNORE-BEGIN

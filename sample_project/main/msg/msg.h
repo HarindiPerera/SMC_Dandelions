@@ -18,6 +18,9 @@
 #define MSG_H
 
 #include "canfd/drv_can.h"
+#include <stdlib.h>
+#include <stdint.h>
+#include "driver/spi_master.h"
 
 #define MD5_DIGEST_LENGTH 16
 

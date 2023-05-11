@@ -4,8 +4,12 @@
  * 2023
 */
 #include <stdio.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <driver/spi_master.h>
+#include <inttypes.h>
 #include "DandSMC.h"
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -14,20 +18,21 @@
 #include "sdkconfig.h"
 #include "esp_system.h"
 #include "esp_err.h"
-
 #include "nvs.h"
 #include "nvs_flash.h"
-#include <inttypes.h>
 #include "state.h"
 #include "esp_spiffs.h"
-#include <stdarg.h>
-#include <driver/spi_master.h>
+
+
 #include "canfdspi/drv_canfdspi_api.h"
-#include "spi/drv_spi.h"
+//#include "spi/drv_spi.h"
 #include "canfd/drv_can.h"
 #include "msg/msg.h"
 #include "md5/md5.h"
 #include "isotp/iso_tp.h"
+
+
+TaskHandle_t ListenHandle = NULL;
 
 /**
  * @brief Task to feed the hardware watchdog every 5 seconds.
@@ -44,21 +49,19 @@ void hwWDPulseTask(void* pvParamemters){
 
     //Infinite Loop
     for(;;){
-
         //rprintf("WD.\n");
         gpio_set_level(WDI,1);                              // Set the HW_watchdog high
         vTaskDelay(WD_DELAY_MS/portTICK_PERIOD_MS);         // settling time
         gpio_set_level(WDI,0);                              // Set the HW_watchdog low
         vTaskDelay(5000/portTICK_PERIOD_MS);                // Control back to scheduler
     }
-
     vTaskDelete(NULL);                                                          // delete task if it breaks for some reason
     printf("CRITICAL ERROR: hwWDPulseTask broke from loop. Task Deleted\n");    // error msg
 }
 
 
 void Listen(void *pvParameters){
-    spi_device_handle_t spi = *((TaskParams_t*)pvParameters)->spi;
+    spi_device_handle_t spi = ((TaskParams_t*)pvParameters)->spi;
     for (;;) 
     {
         // sleep(1);
@@ -66,7 +69,7 @@ void Listen(void *pvParameters){
     }    
 }
 
-/*void checkListenState(TaskHandle_t ListenHandle ) {
+void checkListenState(TaskHandle_t ListenHandle ) {
   while(1) {
     eTaskState state = eTaskGetState(ListenHandle);
     if(state == eDeleted) {
@@ -75,7 +78,7 @@ void Listen(void *pvParameters){
     }
     vTaskDelay(pdMS_TO_TICKS(100));
   }
-}*/
+}
 
 
 
@@ -97,7 +100,6 @@ void app_main(void)
     ); 
 
                   
-
     // initilise nvr partition
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -139,14 +141,55 @@ void app_main(void)
     };
 
     
-
+    // any function with SMC_ in the main is just for testing. 
     // patrick main
+
+    spi_dma_chan_t dma_chan = SPI_DMA_CH_AUTO;
+    
+    //Initialize the HSPI bus
+    ESP_ERROR_CHECK(spi_bus_initialize(CANSPI_HOST, &buscfg_0, dma_chan));
+
+    //Attach the device to the SPI bus
+    ESP_ERROR_CHECK(spi_bus_add_device(CANSPI_HOST, &devcfg_1, &spi_1));
+    printf("\n");
+    // sleep(5);
+    vTaskDelay(5000/portTICK_PERIOD_MS);
+    // printf only prints to consol with \n (*head -> desk)
+    printf("OP Mode 0:%X\n",DRV_CANFDSPI_OperationModeGet(&spi_1));
+    // make sure MCP is in Configuration Mode at start-up
+    ESP_ERROR_CHECK(DRV_CANFDSPI_OperationModeSelect(&spi_1, CAN_CONFIGURATION_MODE));
+
+    //sleep(5);
+    vTaskDelay(5000/portTICK_PERIOD_MS);
+
+    DRV_CAN_INIT(&spi_1);
+
+    SMC_FILTER_CONFIG(&spi_1);
+    
+    //sleep(1);
+    vTaskDelay(1000/portTICK_PERIOD_MS);
+    printf("CAN Initialisation finished\n");
+    // Double Check RAM Usage: 2040 Bytes out of a maximum of 2048 Bytes -> OK
+    // Enable ECC
+    // ESP_ERROR_CHECK(DRV_CANFDSPI_EccEnable(spi_0));
+    ESP_ERROR_CHECK(DRV_CANFDSPI_EccEnable(&spi_1));
+    // Initialize RAM
+    // ESP_ERROR_CHECK(DRV_CANFDSPI_RamInit(spi_0, 0xff));
+    ESP_ERROR_CHECK(DRV_CANFDSPI_RamInit(&spi_1, 0xff));
+    // Configuration Done: Select Normal Mode
+    ESP_ERROR_CHECK(DRV_CANFDSPI_OperationModeSelect(&spi_1, CAN_NORMAL_MODE));
+    // ESP_ERROR_CHECK(DRV_CANFDSPI_OperationModeSelect(&spi_1, CAN_INTERNAL_LOOPBACK_MODE));
+    
+    //sleep(1);
+    vTaskDelay(1000/portTICK_PERIOD_MS);
+    printf("OP Mode 0:%X\n",DRV_CANFDSPI_OperationModeGet(&spi_1));
+    printf("Starting Normal Mode\n");
     
 
     
     // SMC Test Code for Dandelions side
     //TaskParams_t params = {.spi = spi_1};
-    //TaskHandle_t ListenHandle = NULL;
+    
     //TaskHandle_t Task2Handle = NULL; 
 
     //xTaskCreate(Listen,"Listen",8192,&params,1,&ListenHandle);

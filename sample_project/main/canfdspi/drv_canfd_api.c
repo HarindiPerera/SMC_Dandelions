@@ -44,13 +44,15 @@ DIRECTLY TO MICROCHIP FOR THIS SOFTWARE.
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+
 // #include "esp_system.h"
 // #include "freertos/FreeRTOS.h"
 // #include "freertos/task.h"
 #include "drv_canfdspi_api.h"
 #include "drv_canfdspi_register.h"
 #include "drv_canfdspi_defines.h"
-#include "../spi/drv_spi.h"
+//#include "../spi/drv_spi.h"
 #include "driver/spi_master.h"
 #include "driver/spi_common.h"
 #include "driver/gpio.h"
@@ -63,8 +65,9 @@ DIRECTLY TO MICROCHIP FOR THIS SOFTWARE.
 
 #define CRCBASE    0xFFFF
 #define CRCUPPER   1
+#define SPI_DEFAULT_BUFFER_LENGTH 48
+#define Nop() asm("nop")
 
-// #define 
 
 // *****************************************************************************
 // *****************************************************************************
@@ -146,7 +149,7 @@ int8_t DRV_CANFDSPI_Reset(spi_device_handle_t* spi)
     t.length = 16;
     t.user = (void*)1;
 
-    int8_t spiTransferError = spi_device_transmit(spi,&t); //patrick
+    int8_t spiTransferError = spi_device_transmit_cs(spi,&t); //patrick
 
     return spiTransferError;
 }

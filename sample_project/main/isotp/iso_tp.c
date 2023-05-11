@@ -17,8 +17,11 @@
 // *****************************************************************************
 // *****************************************************************************
 
+#include <stdlib.h>
+#include <stdint.h>
+#include "driver/spi_master.h"
 #include "iso_tp.h"
-#include "spi/drv_spi.h"
+//#include "spi/drv_spi.h"
 #include "canfd/drv_can.h"
 #include <string.h>
 #include "msg/msg.h"

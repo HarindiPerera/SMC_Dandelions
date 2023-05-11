@@ -17,7 +17,10 @@
 // *****************************************************************************
 // *****************************************************************************
 
-#include "spi/drv_spi.h"
+//#include "spi/drv_spi.h"
+#include <stdlib.h>
+#include <stdint.h>
+#include "driver/spi_master.h"
 
 #define TYPE_SINGLE 0
 #define TYPE_FIRST 1

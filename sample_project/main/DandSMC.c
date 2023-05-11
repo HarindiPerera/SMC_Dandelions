@@ -22,14 +22,13 @@
 #include <errno.h>
 #include <stdarg.h>
 #include "canfdspi/drv_canfdspi_api.h"
-#include "spi/drv_spi.h"
 #include "canfd/drv_can.h"
 #include "msg/msg.h"
 #include "md5/md5.h"
 #include "isotp/iso_tp.h"
 #include "driver/spi_master.h"
 #include "time.h"
-#include "driver/spi_master.h"
+
 
 
 static const GPIO_Pins faultIndicators[] = {

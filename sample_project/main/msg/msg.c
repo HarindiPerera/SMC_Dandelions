@@ -19,6 +19,8 @@
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include "driver/spi_master.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <md5/global.h>
@@ -27,7 +29,7 @@
 #include <canfdspi/drv_canfdspi_api.h>
 #include <canfdspi/drv_canfdspi_defines.h>
 #include <canfdspi/drv_canfdspi_register.h>
-#include <spi/drv_spi.h>
+//#include <spi/drv_spi.h>
 #include <isotp/iso_tp.h>
 
 /* Task handles*/

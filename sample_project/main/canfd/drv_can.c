@@ -16,11 +16,13 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include "driver/spi_master.h"
 #include "drv_can.h"
 #include <canfdspi/drv_canfdspi_api.h>
 #include <canfdspi/drv_canfdspi_defines.h>
 #include <canfdspi/drv_canfdspi_register.h>
-#include <spi/drv_spi.h>
+//#include <spi/drv_spi.h>
 #include <msg/msg.h>
 
 void DRV_CAN_FILTER_CONFIG(spi_device_handle_t* spi) {
