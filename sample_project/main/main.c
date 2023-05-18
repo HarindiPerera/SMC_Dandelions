@@ -22,15 +22,14 @@
 #include "nvs_flash.h"
 #include "state.h"
 #include "esp_spiffs.h"
-
-
+#include "esp_task_wdt.h"
 #include "canfdspi/drv_canfdspi_api.h"
-//#include "spi/drv_spi.h"
 #include "canfd/drv_can.h"
 #include "msg/msg.h"
 #include "md5/md5.h"
 #include "isotp/iso_tp.h"
 
+// TODO -> think that i am going to have to use queues to make this happen. 
 
 TaskHandle_t ListenHandle = NULL;
 
@@ -46,8 +45,6 @@ TaskHandle_t ListenHandle = NULL;
  * @return None.
  */
 void hwWDPulseTask(void* pvParamemters){
-
-    //Infinite Loop
     for(;;){
         //rprintf("WD.\n");
         gpio_set_level(WDI,1);                              // Set the HW_watchdog high
@@ -61,10 +58,24 @@ void hwWDPulseTask(void* pvParamemters){
 
 
 void Listen(void *pvParameters){
-    spi_device_handle_t spi = ((TaskParams_t*)pvParameters)->spi;
+    TaskParams_t* task = (TaskParams_t*)pvParameters; 
+    spi_device_handle_t spi = task->spi;
+    printf("Init flowFlag = %d\n", task->ctrlFlowFlag);
+    char ch;
     for (;;) 
     {
-        // sleep(1);
+        if(DEBUG){
+            scanf("%c", &ch);
+            if(ch == 's'){
+                task->ctrlFlowFlag = ESD;
+                printf("Edit flowFlag ESD= %d\n", task->ctrlFlowFlag);
+            }else if(ch =='r'){
+                task->ctrlFlowFlag = GREENLIGHT;
+                printf("Edit flowFlag GL= %d\n", task->ctrlFlowFlag);
+            }
+            ch = 'X';
+        }
+        vTaskDelay(10/portTICK_PERIOD_MS);
         SMC_MESSAGE_HANDLER(&spi);
     }    
 }
@@ -81,26 +92,24 @@ void checkListenState(TaskHandle_t ListenHandle ) {
 }
 
 
-
-
 //___________________________________________APP__MAIN_______________________________________________
+
+
+IRAM_ATTR TaskParams_t* params;
 
 void app_main(void)
 {
-
-    // Setup
+    // Create hardware Watchdog Task
     xTaskCreatePinnedToCore(
         hwWDPulseTask,  
         "HWWATCHDOG",   /*Task Name*/
         1024,           /*stackdepth*/
         NULL,           /*pvParameters*/
-        16,             /*Priority*/
+        16,             /*Priority = HIGHEST*/
         NULL,           /*ret handel*/
         1               /*core*/
     ); 
-
-                  
-    // initilise nvr partition
+              
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         // NVS partition was truncated and needs to be erased
@@ -142,7 +151,6 @@ void app_main(void)
 
     
     // any function with SMC_ in the main is just for testing. 
-    // patrick main
 
     spi_dma_chan_t dma_chan = SPI_DMA_CH_AUTO;
     
@@ -152,23 +160,22 @@ void app_main(void)
     //Attach the device to the SPI bus
     ESP_ERROR_CHECK(spi_bus_add_device(CANSPI_HOST, &devcfg_1, &spi_1));
     printf("\n");
-    // sleep(5);
-    vTaskDelay(5000/portTICK_PERIOD_MS);
+
+    vTaskDelay(4000/portTICK_PERIOD_MS);
     // printf only prints to consol with \n (*head -> desk)
     printf("OP Mode 0:%X\n",DRV_CANFDSPI_OperationModeGet(&spi_1));
     // make sure MCP is in Configuration Mode at start-up
     ESP_ERROR_CHECK(DRV_CANFDSPI_OperationModeSelect(&spi_1, CAN_CONFIGURATION_MODE));
 
     //sleep(5);
-    vTaskDelay(5000/portTICK_PERIOD_MS);
+    vTaskDelay(4000/portTICK_PERIOD_MS);
 
     DRV_CAN_INIT(&spi_1);
-
     SMC_FILTER_CONFIG(&spi_1);
-    
-    //sleep(1);
+
     vTaskDelay(1000/portTICK_PERIOD_MS);
     printf("CAN Initialisation finished\n");
+
     // Double Check RAM Usage: 2040 Bytes out of a maximum of 2048 Bytes -> OK
     // Enable ECC
     // ESP_ERROR_CHECK(DRV_CANFDSPI_EccEnable(spi_0));
@@ -183,40 +190,39 @@ void app_main(void)
     //sleep(1);
     vTaskDelay(1000/portTICK_PERIOD_MS);
     printf("OP Mode 0:%X\n",DRV_CANFDSPI_OperationModeGet(&spi_1));
-    printf("Starting Normal Mode\n");
+    printf("Nominal: Waiting for GreenLight ('r')\n");
     
-
+    // set the flowFlag to be nominal
+    // enum flowFlag ctrlFlowFlag = NOMINAL;
     
     // SMC Test Code for Dandelions side
-    //TaskParams_t params = {.spi = spi_1};
     
-    //TaskHandle_t Task2Handle = NULL; 
+    TaskParams_t params = {.spi = spi_1, .ctrlFlowFlag = NOMINAL};
+    // params  = (TaskParams_t*)malloc(sizeof(TaskParams_t));
+    // params->spi = spi_1;
+    // params->flowFlagPointer = ctrlFlowFlag;
 
-    //xTaskCreate(Listen,"Listen",8192,&params,1,&ListenHandle);
+    xTaskCreatePinnedToCore(
+        Listen,  
+        "LISTEN",       /*Task Name*/
+        8192,           /*stackdepth*/
+        &params,        /*pvParameters*/
+        1,              /*Priority*/
+        &ListenHandle,  /*ret handel*/
+        1               /*core*/
+    ); 
 
-
-
-    //////////////////////////
-
-    // set the flowFlag to be nominal
-    enum flowFlag ctrlFlowFlag = NOMINAL;
 
     // wait for greenlight 
-    while(ctrlFlowFlag != GREENLIGHT){
+    while(params.ctrlFlowFlag != GREENLIGHT){
         // in debug phase check the r key for greenlight 
-        if(DEBUG){
-            if(getchar()=='r'){
-                ctrlFlowFlag = GREENLIGHT;
-            }
-        }
-    
         vTaskDelay(100/portTICK_PERIOD_MS);
         // if no greenlight just chill here. 
     }
-    if(ctrlFlowFlag == GREENLIGHT){
+    if(params.ctrlFlowFlag == GREENLIGHT){
         logError("Greenlit For exerpiment\n");
-        ctrlFlowFlag = NOMINAL;
-        ADC_Pwr(1);
+        params.ctrlFlowFlag = NOMINAL;
+        ADC_Pwr(1);      // TODO ->> what the firck is this . 
     }
     
     // initialise the i2cBuss
@@ -227,24 +233,23 @@ void app_main(void)
     int phase = 0;
     int experimentCount = 0;
 
-    if( ctrlFlowFlag == NOMINAL) {
+    if( params.ctrlFlowFlag == NOMINAL) {
 
         getExerpimentPhaseTicks(&phase,&ticks);      // Check the previous phase and ticks 
         if (phase !=0 || ticks !=0){
             printf("main: Phase = %d, Tick = %d\n", phase,ticks);
-            neutralise(&phase,&ticks, &ctrlFlowFlag);        // if non-zero then neutralise and dont run experiment
+            neutralise(&phase,&ticks, &params.ctrlFlowFlag);        // if non-zero then neutralise and dont run experiment
         }else{
-            RunExperiment(&phase, &ticks, &ctrlFlowFlag);    // else run the experiment
+            RunExperiment(&phase, &ticks, &params.ctrlFlowFlag);    // else run the experiment
         }
         setExperimentPhaseTicks(&phase,&ticks,0);        // set the phase and ticks. 
         if ((phase!=0)|(ticks!=0)){
-            ctrlFlowFlag = ESD;
+            params.ctrlFlowFlag = ESD;
             logError("Motor actualtion terminated unexpectely\n"); 
         }
         // This is a 'just in case' condition
         EnMotor(0);         
         ADC_Pwr(0);         
-
         updateExperimentCount(0,&experimentCount);
     }
 

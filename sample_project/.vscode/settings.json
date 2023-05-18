@@ -80,6 +80,10 @@
     "stdarg.h": "c",
     "spi_master.h": "c",
     "freertos.h": "c",
-    "drv_canfdspi_api.h": "c"
+    "drv_canfdspi_api.h": "c",
+    "time.h": "c",
+    "md5.h": "c",
+    "stdlib.h": "c",
+    "stdint.h": "c"
   }
 }

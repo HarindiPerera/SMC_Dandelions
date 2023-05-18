@@ -468,7 +468,7 @@ esp_err_t RunMotor(bool dir, int *ticks, enum flowFlag *flowFlagPtr){
     esp_err_t err = ESP_OK;  
 ;    if ((*ticks) <=0 ){
         if(DEBUG){
-            printf("RunMotor(): ticks <0, invalid argument - ESP_FAIL\n");
+            printf("RunMotor():  %d <=0, invalid argument - ESP_FAIL\n",(*ticks));
         }else{
             logError("RunMotor(): ticks <0, invalid argument - ESP_FAIL\n");
         }
@@ -505,6 +505,11 @@ esp_err_t RunMotor(bool dir, int *ticks, enum flowFlag *flowFlagPtr){
         vTaskDelay(5/portTICK_PERIOD_MS);
         mError |= gpio_set_level(MOTSTEP,0);
         vTaskDelay(10/portTICK_PERIOD_MS);
+    }
+    
+    if(*flowFlagPtr == ESD){
+        // This is s test 
+        printf("Emergency shut down\n");
     }
 
     // If loop ends because there has been an err!=0 condition
