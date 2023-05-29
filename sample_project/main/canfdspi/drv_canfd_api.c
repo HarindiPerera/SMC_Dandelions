@@ -173,7 +173,7 @@ int8_t DRV_CANFDSPI_ReadByte(spi_device_handle_t* spi, uint16_t address, uint8_t
     t.addr = address;
     t.length = 16;
     t.rxlength = 8;
-    t.rx_buffer = malloc(sizeof(uint8_t));
+    t.rx_buffer = (uint8_t*)  malloc(sizeof(uint8_t));
     // memcpy(t.rx_buffer, rxd, sizeof(uint8_t));
     t.user = (void*)1;
     int8_t spiTransferError = spi_device_transmit_cs(spi,&t);
@@ -192,7 +192,7 @@ int8_t DRV_CANFDSPI_WriteByte(spi_device_handle_t* spi, uint16_t address, uint8_
     memset(&t, 0, sizeof(t));
     t.cmd = cINSTRUCTION_WRITE;
     t.addr = address;
-    t.tx_buffer = malloc(sizeof(uint8_t));
+    t.tx_buffer = (uint8_t*) malloc(sizeof(uint8_t));
     t.length = 16;
     t.user = (void*)1;
 
@@ -946,25 +946,30 @@ int8_t DRV_CANFDSPI_TransmitChannelLoad(spi_device_handle_t* spi,
     uint16_t n = 0;
     uint8_t j = 0;
 
-    if (txdNumBytes % 4) {
-        // Need to add bytes
-        n = 4 - (txdNumBytes % 4);
-        i = txdNumBytes + 8;
+    // if (!(txdNumBytes % 4)) {
+    //     // Need to add bytes
+    //     n = 4 - (txdNumBytes % 4);
+    //     i = txdNumBytes + 8;
 
-        for (j = 0; j < n; j++) {
-            txBuffer[i + 8 + j] = 0;
-        }
+    //     for (j = 0; j < n; j++) {
+    //         txBuffer[i + 8 + j] = 0;
+    //     }
+    // }
+
+    for (uint8_t i = 0; i<txdNumBytes+8+n; i++){
+        printf("%X",txBuffer[i]);
     }
+    printf("\n");
 
     spiTransferError = DRV_CANFDSPI_WriteByteArray(spi, a, txBuffer, txdNumBytes + 8 + n);
     if (spiTransferError) {
         return -4;
     }
 
-    uint8_t rx_buf[(MAX_DATA_BYTES+8+1)] = {0};
+    // uint8_t rx_buf[(MAX_DATA_BYTES+8+1)] = {0};
     // uint8_t rx_buf[sizeof(uint8_t)*(txdNumBytes+8+n)] = {0};
     // DRV_CANFDSPI_ReadByteArray(spi,a+8,&rx_buf,txdNumBytes);
-    DRV_CANFDSPI_ReadByteArray(spi,a,&rx_buf,txdNumBytes+8+n+1);
+    // DRV_CANFDSPI_ReadByteArray(spi,a,&rx_buf,txdNumBytes+8+n+1);
     // printf("test:");
     // for (uint8_t i=0;i<txdNumBytes+8+n;i++) {
     //     printf("%u ", rx_buf[i]);
@@ -1440,6 +1445,7 @@ int8_t DRV_CANFDSPI_ReceiveMessageGet(spi_device_handle_t* spi,
     myReg.byte[1] = ba[1];
     myReg.byte[2] = ba[2];
     myReg.byte[3] = ba[3];
+    printf("Obj Word1: %lX\n",myReg.word);
     rxObj->word[0] = myReg.word;
 
     myReg.byte[0] = ba[4];

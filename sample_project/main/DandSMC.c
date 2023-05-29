@@ -115,8 +115,8 @@ void SMC_PowerDown(spi_device_handle_t* spi){
 }
 
 void SMC_BeginOperation(spi_device_handle_t* spi){
-    // printf("Ready to operate...\n");
-    uint8_t nil = 0;
+    printf("Send begin\n");
+    uint8_t nil[MAX_DATA_BYTES] = {0};
     DRV_CAN_WRITE(spi,&nil,BEGIN,CAN_DLC_64);
 }
 

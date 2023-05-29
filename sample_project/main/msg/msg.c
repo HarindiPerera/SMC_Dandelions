@@ -31,6 +31,7 @@
 #include <canfdspi/drv_canfdspi_register.h>
 //#include <spi/drv_spi.h>
 #include <isotp/iso_tp.h>
+#include "DandSMC.h"
 
 /* Task handles*/
 TaskHandle_t TxHandle = NULL;
@@ -216,31 +217,62 @@ void SMC_FILTER_CONFIG(spi_device_handle_t* spi) {
 }
 
 // Message Handler
-void SMC_MESSAGE_HANDLER(spi_device_handle_t* spi) {
+void SMC_MESSAGE_HANDLER(spi_device_handle_t *spi, enum flowFlag *flowFlagPtr) {
     // Receive Message Object
     CAN_RX_MSGOBJ rxObj;
     uint8_t rxd[MAX_DATA_BYTES] = {0};
 
-    if (!DRV_CAN_READ_OBJ(spi,&rxd,&rxObj)){
+    //printf("In the Message Handler the flow flag  = %d\n",*flowFlagPtr);
+
+    if (DRV_CAN_READ_OBJ(spi,&rxd,&rxObj)==0){
+
+        // thr following prints out the entire frame.
+        
+        // printf("SMC_MSG_HANDLER Rx = ");
+        // for (uint8_t i = 0; i<MAX_DATA_BYTES; i++) {
+        //     printf("%X",rxd[i]);
+        // }
+        // printf("\n");
+
+        printf("SID: %X\n",rxObj.bF.id.SID);
         switch (rxObj.bF.id.SID) {
+
            // case TIMESTAMP: get_timestamp(&rxd);
             //case SPACECRAFT_STATE: get_spacecraft_state(rxd);
-            case POWDWN_ALL | POWDWN: powerdown();
-            case BEGIN: begin(&rxd);
-            case CEASE: stop();
-            case QUERY: {
+            case POWDWN:
+                *flowFlagPtr = ESD;
+                powerdown();
+                break;
+            case POWDWN_ALL:
+                *flowFlagPtr = ESD; 
+                powerdown();
+                break;
+            case BEGIN: 
+                *flowFlagPtr = GREENLIGHT;
+                begin(&rxd);
+                break;
+            case CEASE:
+                *flowFlagPtr = ESD;
+                stop();
+                break;
+            case QUERY: 
                 // Query Response                
-                TxParams_t txParams = {.spi = spi};
-                xTaskCreate(Tx,"Tx",8192,&txParams,1,&TxHandle);
-            };
-            case RECEIVE_CMD: handle_rx(spi,rxd);
+                // TxParams_t txParams = {.spi = spi};
+                // xTaskCreate(Tx,"Tx",8192,&txParams,16,&TxHandle);
+                handle_tx(spi);
+                printf("Welcome to the Query time. its weird here and i like it\n");
+                break;
+            case RECEIVE_CMD: 
+                handle_rx(spi,rxd);
             // These cases will only occur during data transmission -> handled in handle_quer();
             // case TRANSMIT_CMD: break;
             // case TRANSMIT_FLOW: break;
             // case TRANSMIT_RESULT: break;
             default: break;
         }
-    }        
+    }else{
+            // Do nothing
+    }       
 }
 
  //void get_timestamp(uint8_t* rxd) {
@@ -318,33 +350,47 @@ void handle_tx(spi_device_handle_t* spi) {
     uint8_t data = 0;
     uint32_t data_len = sizeof(data);
 
-    char *name = "Test";
-    uint8_t name_len = strlen(name) + 1; // add 1 for null terminator
-    uint8_t reply_len = MD5_DIGEST_LENGTH + name_len; 
+    // char *name = "Test";
+    // uint8_t name_len = strlen(name) + 1; // add 1 for null terminator
+    // uint8_t reply_len = MD5_DIGEST_LENGTH + name_len; 
     
-    // Reply with MD5 hash and UTF-8 filename of data
-    // Creat MD5 hash digest
-    uint8_t digest[MD5_DIGEST_LENGTH];
-    MD5(digest, &data, sizeof(data));
+    // // Reply with MD5 hash and UTF-8 filename of data
+    // // Creat MD5 hash digest
+    // uint8_t digest[MD5_DIGEST_LENGTH];
+    // MD5(digest, &data, sizeof(data));
 
-    uint8_t* reply = (uint8_t*) malloc(sizeof(data_len)); // allocate memory for data
+    // uint8_t* reply = (uint8_t*) malloc(sizeof(data_len)); // allocate memory for data
 
-    memcpy(reply,digest,MD5_DIGEST_LENGTH);
+    // memcpy(reply,digest,MD5_DIGEST_LENGTH);
 
-   // memcpy(reply+MD5_DIGEST_LENGTH,name,name_len); //PATRICK
+    // memcpy(reply+MD5_DIGEST_LENGTH,name,name_len); //PATRICK
 
+    // prepare your butt for some data mr host computer using the following
+    // reply need to be 2 byts of the MD5 hash of the 'results' array (data to be downlinked)
+    // the rest is a utf8 encoded filename. 
+
+
+    uint8_t* reply[MAX_DATA_BYTES] = {0};
     DRV_CAN_WRITE(spi,reply,RESPONSE,CAN_DLC_64);
 
     bool ack = false;
     bool recv = false;
-    // Implement a wait loop for ack
+
+    // Implement a wait for ack loop
     while (ack == false) {
         CAN_RX_MSGOBJ msgObj;
         uint8_t rxd[MAX_DATA_BYTES] = {0};
         DRV_CAN_READ_OBJ(spi,&rxd,&msgObj);
+        // At this point We are only listening for the transmit command, cease, powerdown or powerdown all. 
 
         if (msgObj.bF.id.SID == TRANSMIT_CMD) {
             ack = true;
+        }else if (msgObj.bF.id.SID == CEASE){
+            stop();
+        }else if (msgObj.bF.id.SID == POWDWN){
+            powerdown();
+        }else if (msgObj.bF.id.SID == POWDWN_ALL){
+            powerdown();
         }
     }
 

@@ -60,23 +60,14 @@ void hwWDPulseTask(void* pvParamemters){
 void Listen(void *pvParameters){
     TaskParams_t* task = (TaskParams_t*)pvParameters; 
     spi_device_handle_t spi = task->spi;
-    printf("Init flowFlag = %d\n", task->ctrlFlowFlag);
-    char ch;
+    //printf("Init flowFlag = %d\n", task->ctrlFlowFlag);
+    
     for (;;) 
     {
-        if(DEBUG){
-            scanf("%c", &ch);
-            if(ch == 's'){
-                task->ctrlFlowFlag = ESD;
-                printf("Edit flowFlag ESD= %d\n", task->ctrlFlowFlag);
-            }else if(ch =='r'){
-                task->ctrlFlowFlag = GREENLIGHT;
-                printf("Edit flowFlag GL= %d\n", task->ctrlFlowFlag);
-            }
-            ch = 'X';
-        }
-        vTaskDelay(10/portTICK_PERIOD_MS);
-        SMC_MESSAGE_HANDLER(&spi);
+        vTaskDelay(10/portTICK_PERIOD_MS); // was initially 1000
+        // working on passing the flow flag to this;
+        SMC_MESSAGE_HANDLER(&spi, &(task->ctrlFlowFlag));
+   
     }    
 }
 
@@ -127,6 +118,7 @@ void app_main(void)
         esp_restart();
     }
 
+
     //SPI CONFIG
     esp_err_t ret;
     spi_device_handle_t spi_0;
@@ -141,15 +133,14 @@ void app_main(void)
     
     //SPI DEVICE CONFIG
     spi_device_interface_config_t devcfg_1={
-        .clock_speed_hz=10*1000*1000,           //Clock out at 10 MHz
-        .mode=3,                                //SPI mode 0
+        .clock_speed_hz=5*1000*1000,           //Clock out at 10 MHz
+        .mode=0,                                //SPI mode 0
         .spics_io_num=PIN_NUM_CS,               //CS pin
         .command_bits=4,                        //Command Size
         .address_bits=12,                       //Address Size
         .queue_size=100,                        //Queue Size
     };
 
-    
     // any function with SMC_ in the main is just for testing. 
 
     spi_dma_chan_t dma_chan = SPI_DMA_CH_AUTO;
@@ -167,7 +158,6 @@ void app_main(void)
     // make sure MCP is in Configuration Mode at start-up
     ESP_ERROR_CHECK(DRV_CANFDSPI_OperationModeSelect(&spi_1, CAN_CONFIGURATION_MODE));
 
-    //sleep(5);
     vTaskDelay(4000/portTICK_PERIOD_MS);
 
     DRV_CAN_INIT(&spi_1);
@@ -207,15 +197,16 @@ void app_main(void)
         "LISTEN",       /*Task Name*/
         8192,           /*stackdepth*/
         &params,        /*pvParameters*/
-        1,              /*Priority*/
+        15,              /*Priority*/
         &ListenHandle,  /*ret handel*/
         1               /*core*/
     ); 
 
-
+    
     // wait for greenlight 
     while(params.ctrlFlowFlag != GREENLIGHT){
-        // in debug phase check the r key for greenlight 
+        // this task should come from the Listen task
+
         vTaskDelay(100/portTICK_PERIOD_MS);
         // if no greenlight just chill here. 
     }
@@ -257,4 +248,3 @@ void app_main(void)
         vTaskDelay(100/portTICK_PERIOD_MS); // do nothing in the main loop 
     }
 }
-

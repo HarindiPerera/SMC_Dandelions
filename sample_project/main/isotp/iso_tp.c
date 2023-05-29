@@ -120,18 +120,24 @@ bool iso_tp_recv_flow(spi_device_handle_t* spi, iso_tp_control_t* iso) {
 bool iso_tp_send(spi_device_handle_t* spi, uint8_t* data, uint32_t data_len) {
 
     iso_tp_control_t iso = {CONTINUE,1,0,0,0,PCI_12};
-
+    // check if one or multiple frames needed
     if (data_len < MAX_DATA_BYTES - 2) {
         iso_tp_send_single_frame(spi,data,(uint8_t) data_len);
     } else {
+        // send first teaser frame
         iso_tp_send_first_frame(spi,&iso,data,data_len);
         
+        // Wait for hungry host to tell you how many bites it wants in the next serving
         iso_tp_recv_flow(spi,&iso);
 
+        // loopdy loop while you haven't sent everything yet aka keep it coming
         while (iso.index < iso.num_segments) {        
+            // this is then you send
             if (iso.flow == CONTINUE) {
+                // this is a little rest between sends (maybe change to other sleep?)
                 usleep(iso.sep_time);
                 uint8_t blk_cnt = 0;
+                // send all the blocks the host wnats
                 if (blk_cnt < iso.block_size) {              
                     // Calculate segment length
                     uint32_t segment_length = data_len - iso.index * (MAX_DATA_BYTES-iso.pci);
@@ -140,14 +146,17 @@ bool iso_tp_send(spi_device_handle_t* spi, uint8_t* data, uint32_t data_len) {
                     }
                     iso_tp_send_consecutive_frame(spi,&iso,data,segment_length);
                 } else {
+                    // once you sent everything the host wanted you wait for the next order
                     iso_tp_recv_flow(spi,&iso);
                 }                              
             } else if (iso.flow == WAIT) {
+                // here you just wait for the next order, host is busy doing other stuff or something
                 if (!iso_tp_recv_flow(spi,&iso)) {
                     return false;
                 }
             }
             else if (iso.flow == ABORT) {               
+                // host had enough, but save your data, they might come back for it at some point
                 iso.index = iso.num_segments;
                 return false;
             }  
@@ -165,6 +174,9 @@ void iso_tp_send_flow(spi_device_handle_t* spi, iso_tp_control_t* iso) {
     DRV_CAN_WRITE(spi,msgdata,TRANSMIT_FLOW,CAN_DLC_64);
 }
 
+// Disregard this, we don't want to receive any data from the host, aka I don't want to deal with this rn
+// CAN just makes me cry
+// If someone reads this, pls give Patrick a hug
 uint8_t* iso_tp_receive(spi_device_handle_t* spi) {
     iso_tp_control_t iso = {CONTINUE,1,0,0,0,PCI_12};
 

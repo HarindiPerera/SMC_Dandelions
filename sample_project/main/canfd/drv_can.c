@@ -139,7 +139,7 @@ void DRV_CAN_INIT(spi_device_handle_t* spi) {
     DRV_CAN_FILTER_CONFIG(spi);
 }
 
-// This is only an example at the moment
+// This is only an example at the moment, what is the difference between this and the next function. 
 bool DRV_CAN_READ(spi_device_handle_t* spi, uint8_t* rxd) {
     // Receive Message Object
     CAN_RX_MSGOBJ rxObj;
@@ -169,10 +169,16 @@ bool DRV_CAN_READ(spi_device_handle_t* spi, uint8_t* rxd) {
 int DRV_CAN_READ_OBJ(spi_device_handle_t* spi, uint8_t* rxd, CAN_RX_MSGOBJ* rxObj) {
     // Check that FIFO is not empty
     CAN_RX_FIFO_EVENT rxFlags;
+    
 
-    DRV_CANFDSPI_ReceiveChannelEventGet(spi, CAN_FIFO_CH2, &rxFlags);
+    // how is it known that the CAN_FIFO_Ch2 is the one that we want?
+    // This function actually returns something. Lets see what it is. 
+    uint8_t rtn = DRV_CANFDSPI_ReceiveChannelEventGet(spi, CAN_FIFO_CH2, &rxFlags);
 
-    // printf("rxflag: %X\n",rxFlags);
+    //printf("FRV_CAN_READ_OBJ(): DRV_CANFDSPI_ReceiveChannelEventGet(): %d\n",rtn);
+   // printf("rxflag: %X\n",rxFlags);
+
+    // rxflag is always returning 0. which means that this function always exits with return != 0
 
     if (rxFlags & CAN_RX_FIFO_NOT_EMPTY_EVENT) {
         // Read message and UINC
@@ -220,7 +226,7 @@ void DRV_CAN_WRITE(spi_device_handle_t* spi, uint8_t* txd, uint16_t id, CAN_DLC 
     bool flush = true;
     // bool flush = false;
 
-    DRV_CANFDSPI_TransmitChannelFlush(spi,CAN_FIFO_CH1);
+    // DRV_CANFDSPI_TransmitChannelFlush(spi,CAN_FIFO_CH1);
 
     DRV_CANFDSPI_TransmitChannelEventGet(spi, CAN_FIFO_CH1, &txFlags);
 

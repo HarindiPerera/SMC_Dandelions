@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "driver/spi_master.h"
+#include "DandSMC.h"
 
 #define MD5_DIGEST_LENGTH 16
 
@@ -95,7 +96,7 @@ typedef struct {
 
 void SMC_FILTER_CONFIG(spi_device_handle_t* spi);
 
-void SMC_MESSAGE_HANDLER(spi_device_handle_t* spi);
+void SMC_MESSAGE_HANDLER(spi_device_handle_t* spi, enum flowFlag *flowFlagPtr);
 
 //void get_timestamp(uint8_t* rxd);
 
