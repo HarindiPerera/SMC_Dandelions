@@ -176,7 +176,7 @@ int DRV_CAN_READ_OBJ(spi_device_handle_t* spi, uint8_t* rxd, CAN_RX_MSGOBJ* rxOb
     uint8_t rtn = DRV_CANFDSPI_ReceiveChannelEventGet(spi, CAN_FIFO_CH2, &rxFlags);
 
     //printf("FRV_CAN_READ_OBJ(): DRV_CANFDSPI_ReceiveChannelEventGet(): %d\n",rtn);
-   // printf("rxflag: %X\n",rxFlags);
+    //printf("rxflag: %X\n",rxFlags);
 
     // rxflag is always returning 0. which means that this function always exits with return != 0
 
@@ -202,11 +202,10 @@ void DRV_CAN_WRITE(spi_device_handle_t* spi, uint8_t* txd, uint16_t id, CAN_DLC 
     // txObj.bF.id.SID = TIMESTAMP; // Standard or Base ID
     txObj.bF.id.SID = id;
     txObj.bF.id.EID = 0;
-
-    txObj.bF.ctrl.FDF = 1; // CAN FD frame
-    txObj.bF.ctrl.BRS = 0; // Switch bit rate
-    txObj.bF.ctrl.IDE = 0; // Standard frame
-    txObj.bF.ctrl.RTR = 0; // Not a remote frame request
+    txObj.bF.ctrl.FDF = 1;      // CAN FD frame
+    txObj.bF.ctrl.BRS = 0;      // Switch bit rate
+    txObj.bF.ctrl.IDE = 0;      // Standard frame
+    txObj.bF.ctrl.RTR = 0;      // Not a remote frame request
     txObj.bF.ctrl.DLC = length; // 64 data bytes
     // Sequence doesn't get transmitted but will be stored in TEF
     txObj.bF.ctrl.SEQ = 1;
@@ -226,17 +225,17 @@ void DRV_CAN_WRITE(spi_device_handle_t* spi, uint8_t* txd, uint16_t id, CAN_DLC 
     bool flush = true;
     // bool flush = false;
 
-    // DRV_CANFDSPI_TransmitChannelFlush(spi,CAN_FIFO_CH1);
-
+    DRV_CANFDSPI_TransmitChannelFlush(spi,CAN_FIFO_CH1);
     DRV_CANFDSPI_TransmitChannelEventGet(spi, CAN_FIFO_CH1, &txFlags);
 
-    // printf("txflag: %X\n", txFlags);
+    printf("txflag: %X\n", txFlags);
 
     if (txFlags & CAN_TX_FIFO_NOT_FULL_EVENT) {
         // Load message and transmit
-        DRV_CANFDSPI_TransmitChannelLoad(spi, CAN_FIFO_CH1, &txObj, txd, 
+        int8_t i = DRV_CANFDSPI_TransmitChannelLoad(spi, CAN_FIFO_CH1, &txObj, txd, 
                 DRV_CANFDSPI_DlcToDataBytes(txObj.bF.ctrl.DLC), flush);
-        // printf("%X\n",DRV_CANFDSPI_TransmitChannelLoad(spi, CAN_FIFO_CH1, &txObj, txd, 
-                // DRV_CANFDSPI_DlcToDataBytes(txObj.bF.ctrl.DLC), flush));
+        printf("drv_can.c : DRV_CANFDSPI_TransmitChannelLoad(): %d\n",i);
+        //printf("DRV_CANFD_SPI_TRANSMITCHannelLoad: %X\n",DRV_CANFDSPI_TransmitChannelLoad(spi, CAN_FIFO_CH1, &txObj, txd, 
+        //        DRV_CANFDSPI_DlcToDataBytes(txObj.bF.ctrl.DLC), flush));
     }
 }

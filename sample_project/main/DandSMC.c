@@ -1177,6 +1177,3 @@ void logError(const char* info, ...){
         printf("%s", dataArray[i]);
     }
 }
-
-/////
-//Patrcik implemetation

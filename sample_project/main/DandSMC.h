@@ -27,8 +27,6 @@
 #define I2C_SDA_PIN 21                          //ESP32 SDA 21  
 #define CAN_INT 19
 
-//#define PIN_NUM_RST  18   // NOT USED
-
 #define ADCRPWR 17                              //Right ADC power on gpio 17
 #define ADCLPWR 16                              //Left ADC power on gpio 16
 #define PIN_NUM_CS   15
@@ -36,13 +34,7 @@
 #define PIN_NUM_MOSI 13
 #define PIN_NUM_MISO 12
 
-//#define PIN_NUM_BCKL 5    // NOT USED
 #define DBCON 4
-
-
-//#define PIN_NUM_DC   21     // NOT USED
-
-
 
 // GPIO ASSIGNMENT
 #define OUTPUT_BIT_MASK       0b000000000110110000001110000000000000
@@ -51,7 +43,6 @@
 // Pull Up and Pull down masks
 #define PU_MASK               0b110000000000000000001100000000000000
 #define PD_MASK               0b001100001110000000110011000000000000
-#define PP_MASK 
 
 
 // I2C CONSTANTS

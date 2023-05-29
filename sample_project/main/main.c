@@ -1,6 +1,6 @@
 /**
  * Implementation of the fundemental operations of the Dandelions SMC space mission
- * By Harindi Perera & Jake Sheath
+ * By Harindi Perera, Jake Sheath, & Patrick Oppel
  * 2023
 */
 #include <stdio.h>
@@ -29,8 +29,6 @@
 #include "md5/md5.h"
 #include "isotp/iso_tp.h"
 
-// TODO -> think that i am going to have to use queues to make this happen. 
-
 TaskHandle_t ListenHandle = NULL;
 
 /**
@@ -56,18 +54,14 @@ void hwWDPulseTask(void* pvParamemters){
     printf("CRITICAL ERROR: hwWDPulseTask broke from loop. Task Deleted\n");    // error msg
 }
 
-
 void Listen(void *pvParameters){
     TaskParams_t* task = (TaskParams_t*)pvParameters; 
     spi_device_handle_t spi = task->spi;
     //printf("Init flowFlag = %d\n", task->ctrlFlowFlag);
-    
     for (;;) 
     {
         vTaskDelay(10/portTICK_PERIOD_MS); // was initially 1000
-        // working on passing the flow flag to this;
         SMC_MESSAGE_HANDLER(&spi, &(task->ctrlFlowFlag));
-   
     }    
 }
 
@@ -108,6 +102,7 @@ void app_main(void)
         ESP_ERROR_CHECK(nvs_flash_erase());
         err = nvs_flash_init();
     }
+
     ESP_ERROR_CHECK( err );
     printf("\n");
 
@@ -117,7 +112,6 @@ void app_main(void)
         vTaskDelay(2000/portTICK_PERIOD_MS);
         esp_restart();
     }
-
 
     //SPI CONFIG
     esp_err_t ret;
@@ -133,32 +127,24 @@ void app_main(void)
     
     //SPI DEVICE CONFIG
     spi_device_interface_config_t devcfg_1={
-        .clock_speed_hz=5*1000*1000,           //Clock out at 10 MHz
+        .clock_speed_hz=5*1000*1000,           //Clock out at 5 MHz
         .mode=0,                                //SPI mode 0
-        .spics_io_num=PIN_NUM_CS,               //CS pin
+        .spics_io_num=PIN_NUM_CS,               //CS pin = 15
         .command_bits=4,                        //Command Size
         .address_bits=12,                       //Address Size
         .queue_size=100,                        //Queue Size
     };
 
-    // any function with SMC_ in the main is just for testing. 
-
     spi_dma_chan_t dma_chan = SPI_DMA_CH_AUTO;
-    
-    //Initialize the HSPI bus
-    ESP_ERROR_CHECK(spi_bus_initialize(CANSPI_HOST, &buscfg_0, dma_chan));
-
-    //Attach the device to the SPI bus
-    ESP_ERROR_CHECK(spi_bus_add_device(CANSPI_HOST, &devcfg_1, &spi_1));
+    ESP_ERROR_CHECK(spi_bus_initialize(CANSPI_HOST, &buscfg_0, dma_chan));      //Initialize the HSPI bus
+    ESP_ERROR_CHECK(spi_bus_add_device(CANSPI_HOST, &devcfg_1, &spi_1));        //Attach the device to the SPI bus
     printf("\n");
 
-    vTaskDelay(4000/portTICK_PERIOD_MS);
-    // printf only prints to consol with \n (*head -> desk)
+    vTaskDelay(3000/portTICK_PERIOD_MS);    // Delay
     printf("OP Mode 0:%X\n",DRV_CANFDSPI_OperationModeGet(&spi_1));
-    // make sure MCP is in Configuration Mode at start-up
-    ESP_ERROR_CHECK(DRV_CANFDSPI_OperationModeSelect(&spi_1, CAN_CONFIGURATION_MODE));
+    ESP_ERROR_CHECK(DRV_CANFDSPI_OperationModeSelect(&spi_1, CAN_CONFIGURATION_MODE));    // make sure MCP is in Configuration Mode at start-up
 
-    vTaskDelay(4000/portTICK_PERIOD_MS);
+    vTaskDelay(3000/portTICK_PERIOD_MS);    // Delay
 
     DRV_CAN_INIT(&spi_1);
     SMC_FILTER_CONFIG(&spi_1);
@@ -166,7 +152,6 @@ void app_main(void)
     vTaskDelay(1000/portTICK_PERIOD_MS);
     printf("CAN Initialisation finished\n");
 
-    // Double Check RAM Usage: 2040 Bytes out of a maximum of 2048 Bytes -> OK
     // Enable ECC
     // ESP_ERROR_CHECK(DRV_CANFDSPI_EccEnable(spi_0));
     ESP_ERROR_CHECK(DRV_CANFDSPI_EccEnable(&spi_1));
@@ -177,20 +162,11 @@ void app_main(void)
     ESP_ERROR_CHECK(DRV_CANFDSPI_OperationModeSelect(&spi_1, CAN_NORMAL_MODE));
     // ESP_ERROR_CHECK(DRV_CANFDSPI_OperationModeSelect(&spi_1, CAN_INTERNAL_LOOPBACK_MODE));
     
-    //sleep(1);
     vTaskDelay(1000/portTICK_PERIOD_MS);
     printf("OP Mode 0:%X\n",DRV_CANFDSPI_OperationModeGet(&spi_1));
-    printf("Nominal: Waiting for GreenLight ('r')\n");
-    
-    // set the flowFlag to be nominal
-    // enum flowFlag ctrlFlowFlag = NOMINAL;
-    
-    // SMC Test Code for Dandelions side
+    printf("I am the Payload\n");
     
     TaskParams_t params = {.spi = spi_1, .ctrlFlowFlag = NOMINAL};
-    // params  = (TaskParams_t*)malloc(sizeof(TaskParams_t));
-    // params->spi = spi_1;
-    // params->flowFlagPointer = ctrlFlowFlag;
 
     xTaskCreatePinnedToCore(
         Listen,  
@@ -201,14 +177,16 @@ void app_main(void)
         &ListenHandle,  /*ret handel*/
         1               /*core*/
     ); 
+    uint8_t nil = 0;
 
-    
-    // wait for greenlight 
+    // Let the payload controler know that we are ready for operation
+    //printf("Sending ready status.\n");
+    vTaskDelay(1000/portTICK_PERIOD_MS);
+    DRV_CAN_WRITE(&spi_1, &nil, BEGIN ,CAN_DLC_64); 
+
+    printf("Waiting for greenlight\n");
     while(params.ctrlFlowFlag != GREENLIGHT){
-        // this task should come from the Listen task
-
         vTaskDelay(100/portTICK_PERIOD_MS);
-        // if no greenlight just chill here. 
     }
     if(params.ctrlFlowFlag == GREENLIGHT){
         logError("Greenlit For exerpiment\n");
@@ -243,7 +221,8 @@ void app_main(void)
         ADC_Pwr(0);         
         updateExperimentCount(0,&experimentCount);
     }
-
+    // Then we need to wait for the query command to send the data 
+    //DRV_CAN_WRITE(&spi_1, &nil, READY ,CAN_DLC_64);  // again this just loops. 
     for(;;){  
         vTaskDelay(100/portTICK_PERIOD_MS); // do nothing in the main loop 
     }

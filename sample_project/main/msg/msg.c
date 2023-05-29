@@ -226,8 +226,8 @@ void SMC_MESSAGE_HANDLER(spi_device_handle_t *spi, enum flowFlag *flowFlagPtr) {
 
     if (DRV_CAN_READ_OBJ(spi,&rxd,&rxObj)==0){
 
-        // thr following prints out the entire frame.
-        
+        // the following prints out the entire frame.
+
         // printf("SMC_MSG_HANDLER Rx = ");
         // for (uint8_t i = 0; i<MAX_DATA_BYTES; i++) {
         //     printf("%X",rxd[i]);
