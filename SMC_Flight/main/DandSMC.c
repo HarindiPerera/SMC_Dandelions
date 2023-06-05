@@ -105,65 +105,65 @@ static const GPIO_Pins healthCheck[] = {
 }
 */
 
-void SMC_PowerDown(spi_device_handle_t* spi){
-    // printf("Powering down...\n");
-    uint8_t nil = 0;
-    DRV_CAN_WRITE(spi,&nil,POWDWN,CAN_DLC_64);
-    // DRV_CAN_WRITE(spi,NULL,POWDWN,CAN_DLC_64);
-}
+// void SMC_PowerDown(spi_device_handle_t* spi){
+//     // printf("Powering down...\n");
+//     uint8_t nil = 0;
+//     DRV_CAN_WRITE(spi,&nil,POWDWN,CAN_DLC_64);
+//     // DRV_CAN_WRITE(spi,NULL,POWDWN,CAN_DLC_64);
+// }
 
-void SMC_BeginOperation(spi_device_handle_t* spi){
-    // printf("Ready to operate...\n");
-    uint8_t nil = 0;
-    DRV_CAN_WRITE(spi,&nil,BEGIN,CAN_DLC_64);
-}
+// void SMC_BeginOperation(spi_device_handle_t* spi){
+//     // printf("Ready to operate...\n");
+//     uint8_t nil = 0;
+//     DRV_CAN_WRITE(spi,&nil,BEGIN,CAN_DLC_64);
+// }
 
-void SMC_CeaseOperation(spi_device_handle_t* spi){
-    // printf("Ending operation...\n");
-    uint8_t nil = 0;
-    DRV_CAN_WRITE(spi,&nil,CEASE,CAN_DLC_64);
-    // DRV_CAN_WRITE(spi,NULL,CEASE,CAN_DLC_64);
-}
+// void SMC_CeaseOperation(spi_device_handle_t* spi){
+//     // printf("Ending operation...\n");
+//     uint8_t nil = 0;
+//     DRV_CAN_WRITE(spi,&nil,CEASE,CAN_DLC_64);
+//     // DRV_CAN_WRITE(spi,NULL,CEASE,CAN_DLC_64);
+// }
 
-void SMC_PowerDownAll(spi_device_handle_t* spi){
-    // printf("Powering down all...\n");
-    uint8_t nil = 0;
-    DRV_CAN_WRITE(spi,&nil,POWDWN_ALL,CAN_DLC_64);
-    // DRV_CAN_WRITE(spi,NULL,POWDWN_ALL,CAN_DLC_64);
-}
+// void SMC_PowerDownAll(spi_device_handle_t* spi){
+//     // printf("Powering down all...\n");
+//     uint8_t nil = 0;
+//     DRV_CAN_WRITE(spi,&nil,POWDWN_ALL,CAN_DLC_64);
+//     // DRV_CAN_WRITE(spi,NULL,POWDWN_ALL,CAN_DLC_64);
+// }
 
-void SMC_Query(spi_device_handle_t* spi){
-    printf("Querying...\n");
-    uint8_t nil = 0;
-    DRV_CAN_WRITE(spi,&nil,QUERY,CAN_DLC_64);
-    // DRV_CAN_WRITE(spi,NULL,QUERY,CAN_DLC_64);
-}
+// void SMC_Query(spi_device_handle_t* spi){
+//     printf("Querying...\n");
+//     uint8_t nil = 0;
+//     DRV_CAN_WRITE(spi,&nil,QUERY,CAN_DLC_64);
+//     // DRV_CAN_WRITE(spi,NULL,QUERY,CAN_DLC_64);
+// }
 
-void SMC_Transmit(spi_device_handle_t* spi){
-    printf("Transmitting...\n");
-    uint8_t nil = 0;
-    DRV_CAN_WRITE(spi,&nil,TRANSMIT,CAN_DLC_64);
-    // DRV_CAN_WRITE(spi,NULL,TRANSMIT_CMD,CAN_DLC_64);
-}
+// void SMC_Transmit(spi_device_handle_t* spi){
+//     printf("Transmitting...\n");
+//     uint8_t nil = 0;
+//     DRV_CAN_WRITE(spi,&nil,TRANSMIT,CAN_DLC_64);
+//     // DRV_CAN_WRITE(spi,NULL,TRANSMIT_CMD,CAN_DLC_64);
+// }
 
-void SMC_Flow(spi_device_handle_t* spi){
-    // printf("Flowing...\n");
-    iso_tp_control_t control = {
-        .flow = CONTINUE,
-        .block_size = 1,
-        .sep_time = 0,
-        .num_segments = 0,
-        .index = 0,
-        .pci = 0,
-    };
-    DRV_CAN_WRITE(spi,(uint8_t*) &control,TRANSMIT_FLOW,CAN_DLC_64);
-}
+// void SMC_Flow(spi_device_handle_t* spi){
+//     // printf("Flowing...\n");
+//     iso_tp_control_t control = {
+//         .flow = CONTINUE,
+//         .block_size = 1,
+//         .sep_time = 0,
+//         .num_segments = 0,
+//         .index = 0,
+//         .pci = 0,
+//     };
+//     DRV_CAN_WRITE(spi,(uint8_t*) &control,TRANSMIT_FLOW,CAN_DLC_64);
+// }
 
-void SMC_Result(spi_device_handle_t* spi){
-    // printf("Resulting...\n");
-    uint8_t nil = 0;
-    DRV_CAN_WRITE(spi,&nil,TRANSMIT_RESULT,CAN_DLC_64);
-}
+// void SMC_Result(spi_device_handle_t* spi){
+//     // printf("Resulting...\n");
+//     uint8_t nil = 0;
+//     DRV_CAN_WRITE(spi,&nil,TRANSMIT_RESULT,CAN_DLC_64);
+// }
 
 void print_bits2(uint8_t n) {
     for (int i = 7; i >= 0; i--) {

@@ -31,7 +31,6 @@
 #include "md5/md5.h"
 #include "isotp/iso_tp.h"
 
-// SemaphoreHandle_t exclusiveAccessMutex = NULL;
 TaskHandle_t ListenHandle = NULL;
 IRAM_ATTR TaskParams_t* params;
 
@@ -58,7 +57,7 @@ void hwWDPulseTask(void* pvParamemters){
     printf("CRITICAL ERROR: hwWDPulseTask broke from loop. Task Deleted\n");    // error msg
 }
 
-// establish the listening task
+// Implement the listen task
 void Listen(void *pvParameters){
 
     TaskParams_t* task = (TaskParams_t*)pvParameters; 
@@ -84,7 +83,6 @@ void checkListenState(TaskHandle_t ListenHandle ) {
 
 //___________________________________________APP__MAIN_______________________________________________
 
-
 void app_main(void)
 {
     // Create hardware Watchdog Task
@@ -98,7 +96,6 @@ void app_main(void)
         1               /*core*/
     ); 
 
-
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         // NVS partition was truncated and needs to be erased
@@ -111,8 +108,8 @@ void app_main(void)
     
     // mutex protects the writing to CAN funcation 
     // exclusiveAccessMutex = xSemaphoreCreateMutex();
+
     // initialise all the hardware. Restart if no good
-    
     if(setupHW()!= ESP_OK){
         printf("SETUP ERROR: Restarting...\n");
         vTaskDelay(2000/portTICK_PERIOD_MS);
@@ -187,29 +184,48 @@ void app_main(void)
        1               /*core*/
     ); 
 
+    int i = 'x';
+    uint8_t nil =0;
+
+
+    // while (i=='x') {
+       
+    //     switch(i) {
+    //         case 'x':
+                if(DEBUG){printf("Send: P_RDY_OP\n");}
+                vTaskDelay(100/portTICK_PERIOD_MS);
+                DRV_CAN_WRITE(&spi_1, &nil, P_RDY_OP, CAN_DLC_64);
+                params.ctrlFlowFlag = NOMINAL;
+    //             i =0;
+    //             break;
+    //         default:
+    //         break;
+    //     }
+    // }
+
+
     // Wait for Greenlight 
     printf("Waiting for greenlight\n");
     while(params.ctrlFlowFlag != GREENLIGHT){
         vTaskDelay(100/portTICK_PERIOD_MS);
     }
 
-    int i = 'x';
-    uint8_t nil =0;
-
-    while (i=='x') {
+  
+    // i = 'x';
+    // while (i=='x') {
        
-        switch(i) {
-            case 'x':
-                if(DEBUG){printf("Send: BEGINNING\n");}
+    //     switch(i) {
+    //         case 'x':
+                if(DEBUG){printf("Send: P_BEG_OP\n");}
                 vTaskDelay(100/portTICK_PERIOD_MS);
-                DRV_CAN_WRITE(&spi_1, &nil, BEGINNING, CAN_DLC_64);
+                DRV_CAN_WRITE(&spi_1, &nil, P_BEG_OP, CAN_DLC_64);
                 params.ctrlFlowFlag = NOMINAL;
-                i =0;
-                break;
-            default:
-            break;
-        }
-    }
+    //             i =0;
+    //             break;
+    //         default:
+    //         break;
+    //     }
+    // }
 
     // initialise the phase, tick and experiment count instantce. 
     int ticks = 0;
@@ -236,55 +252,67 @@ void app_main(void)
         // updateExperimentCount(0,&experimentCount);
     }
 
-
 // End Condition loop
 
     printf("End Condition: \n");
-    printf("1 = BEGIN\n");
-    printf("2 = CEASE\n");
-    printf("3 = POWDWN_ALL\n");
-    printf("4 = POWDWN\n");
-    printf("5 = QUERY\n");
+    printf("1 = X_BEG_OP\n");
+    printf("2 = X_STOP\n");
+    printf("3 = X_ALL_PDOWN\n");
+    printf("4 = X_PDOWN\n");
+    printf("5 = X_QDATA\n");
+    printf("6 = X_TX_DATA\n");
+    printf("7 = X_TX_ACK\n");
+    printf("8 = X_ISOTP\n");
 
     for(;;){  
 
        scanf("%d",&i);
-
         switch (i) {
             case 1:
-                printf("BEGIN\n");
-                DRV_CAN_WRITE(&spi_1, &nil, BEGIN, CAN_DLC_64);
+                printf("X_BEG_OP\n");
+                DRV_CAN_WRITE(&spi_1, &nil, X_BEG_OP, CAN_DLC_64);
                 // wait for reply 
                 break;
             case 2:
-                printf("CEASE\n");
-                DRV_CAN_WRITE(&spi_1, &nil, CEASE, CAN_DLC_64);
+                printf("X_STOP\n");
+                DRV_CAN_WRITE(&spi_1, &nil, X_STOP, CAN_DLC_64);
                 
                 // wait for reply 
                 break;
             case 3:
-                printf("POWDWN_ALL\n");
-                DRV_CAN_WRITE(&spi_1, &nil, POWDWN_ALL, CAN_DLC_64);
+                printf("X_ALL_PDOWN\n");
+                DRV_CAN_WRITE(&spi_1, &nil, X_ALL_PDOWN, CAN_DLC_64);
                 
                 // wait for reply 
                 break;
             case 4:
-                printf("POWDWN\n");
-                DRV_CAN_WRITE(&spi_1, &nil, POWDWN, CAN_DLC_64);
+                printf("X_PDOWN\n");
+                DRV_CAN_WRITE(&spi_1, &nil, X_PDOWN, CAN_DLC_64);
                 // wait for reply 
                 break;
             case 5:
-                printf("QUERY\n");
-                DRV_CAN_WRITE(&spi_1, &nil, QUERY, CAN_DLC_64);
+                printf("X_QDATA\n");
+                DRV_CAN_WRITE(&spi_1, &nil, X_QDATA, CAN_DLC_64);
                 // wait for reply 
                 break;
+            case 6:
+                printf("X_TX_DATA\n");
+                DRV_CAN_WRITE(&spi_1, &nil, X_TX_DATA, CAN_DLC_64);
+                break;
+            case 7: 
+                printf("X_TX_ACK\n");
+                DRV_CAN_WRITE(&spi_1, &nil, X_TX_ACK, CAN_DLC_64);
+                break; 
+            case 8:
+                printf("X_ISOTP\n");
+                DRV_CAN_WRITE(&spi_1, &nil, X_ISOTP, CAN_DLC_64);
+                break;
+
             default:
-                //printf(".");
+                
                 break;
         }
         i = 'x';
-
-        
         vTaskDelay(100/portTICK_PERIOD_MS); // do nothing in the main loop 
     }
 }

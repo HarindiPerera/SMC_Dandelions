@@ -27,52 +27,41 @@
 
 // Broadcast commands
 // Timestamp (or 0x400)
-#define TIMESTAMP 0x001
+#define X_DTM 0x001
 // SpaceCraft State (or 0x200)
-#define SPACECRAFT_STATE 0x002
+#define X_STATE 0x002
 // Power Down (or 0x600)
-#define POWDWN_ALL 0x003
+#define X_ALL_PDOWN 0x003
 
 // Payload Specific Commands
 // Begin Operation (or 0x428)
-#define BEGIN 0x0A1
+#define X_BEG_OP 0x0A1
 // Cease Operation (or 0x228)
-#define CEASE 0x0A2
+#define X_STOP 0x0A2
 // Power Down (or 0x628)
-#define POWDWN 0x0A3
+#define X_PDOWN 0x0A3
 // Query for data to transmit (or 0x128)
-#define QUERY 0x0A4 
+#define X_QDATA 0x0A4 
 // Transmit data command over ISO-TP (or 0x528)
-#define TRANSMIT_CMD 0x0A5
+#define X_TX_DATA 0x0A5
 // Transmit data flow control (or 0x328)
-#define TRANSMIT_FLOW 0x0A6
+#define X_ISOTP 0x0A6
 // Data transmission result (or 0x728)
-#define TRANSMIT_RESULT 0x0A7
-// Prepare to Receive File
-#define RECEIVE_CMD 0x0A8
-// Receive Frames over ISO-TP
-#define RECEIVE_FRAME 0x0A9
-
+#define X_TX_ACK 0x0A7
 
 // Standard IDs for Sending
 // Ready to operate (or 0x40A)
-#define READY 0x501
+#define P_RDY_OP 0x501
 // Beginning Operation (or 0x20A)
-#define BEGINNING 0x502
+#define P_BEG_OP 0x502
 // Ceased Operation (or 0x60A)
-#define CEASED 0x503
+#define P_STOP 0x503
 // Ready for power down (or 0x10A)
-#define READY_FOR_POWDWN 0x504
+#define P_PDOWN 0x504
 // Query response for data to transmit (or 0x50A)
-#define RESPONSE 0x505
+#define P_QDATA_RSP 0x505
 // Transmit data over ISO-TP (or 0x30A)
-#define TRANSMIT 0x506
-// Ready to Receive File
-#define RX_READY 0x507
-// Receive Flow Control frames
-#define RX_FLOW 0x508
-// Receive Transmission Result
-#define RX_RESULT 0x509
+#define P_ISOTP 0x506
 
 /*typedef struct {
     double Latitude;

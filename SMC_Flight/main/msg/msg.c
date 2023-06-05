@@ -56,7 +56,7 @@ void SMC_FILTER_CONFIG(spi_device_handle_t* spi) {
     // Timestamp message
     DRV_CANFDSPI_FilterDisable(spi, CAN_FILTER0);
     CAN_FILTEROBJ_ID fObj;
-    fObj.SID = TIMESTAMP;
+    fObj.SID = X_DTM;
     fObj.SID11 = 0;
     fObj.EID = 0;
     fObj.EXIDE = 0; // only expect standard Frames
@@ -65,7 +65,7 @@ void SMC_FILTER_CONFIG(spi_device_handle_t* spi) {
     // SpaceCraft State message
     DRV_CANFDSPI_FilterDisable(spi, CAN_FILTER1);
     // CAN_FILTEROBJ_ID fObj;
-    fObj.SID = SPACECRAFT_STATE;
+    fObj.SID = X_STATE;
     fObj.SID11 = 0;
     fObj.EID = 0;
     fObj.EXIDE = 0; // only expect standard Frames
@@ -74,7 +74,7 @@ void SMC_FILTER_CONFIG(spi_device_handle_t* spi) {
     // Power Down message
     DRV_CANFDSPI_FilterDisable(spi, CAN_FILTER2);
     // CAN_FILTEROBJ_ID fObj;
-    fObj.SID = POWDWN_ALL;
+    fObj.SID = X_ALL_PDOWN;
     fObj.SID11 = 0;
     fObj.EID = 0;
     fObj.EXIDE = 0; // only expect standard Frames
@@ -83,7 +83,7 @@ void SMC_FILTER_CONFIG(spi_device_handle_t* spi) {
     // Begin Operation message
     DRV_CANFDSPI_FilterDisable(spi, CAN_FILTER3);
     // CAN_FILTEROBJ_ID fObj;
-    fObj.SID = BEGIN;
+    fObj.SID = X_BEG_OP;
     fObj.SID11 = 0;
     fObj.EID = 0;
     fObj.EXIDE = 0; // only expect standard Frames
@@ -92,7 +92,7 @@ void SMC_FILTER_CONFIG(spi_device_handle_t* spi) {
     // Cease Operation message
     DRV_CANFDSPI_FilterDisable(spi, CAN_FILTER4);
     // CAN_FILTEROBJ_ID fObj;
-    fObj.SID = CEASE;
+    fObj.SID = X_STOP;
     fObj.SID11 = 0;
     fObj.EID = 0;
     fObj.EXIDE = 0; // only expect standard Frames
@@ -101,7 +101,7 @@ void SMC_FILTER_CONFIG(spi_device_handle_t* spi) {
     // Power Down message
     DRV_CANFDSPI_FilterDisable(spi, CAN_FILTER5);
     // CAN_FILTEROBJ_ID fObj;
-    fObj.SID = POWDWN;
+    fObj.SID = X_PDOWN;
     fObj.SID11 = 0;
     fObj.EID = 0;
     fObj.EXIDE = 0; // only expect standard Frames
@@ -110,7 +110,7 @@ void SMC_FILTER_CONFIG(spi_device_handle_t* spi) {
     // Query for data to transmit message
     DRV_CANFDSPI_FilterDisable(spi, CAN_FILTER6);
     // CAN_FILTEROBJ_ID fObj;
-    fObj.SID = QUERY;
+    fObj.SID = X_QDATA;
     fObj.SID11 = 0;
     fObj.EID = 0;
     fObj.EXIDE = 0; // only expect standard Frames
@@ -119,7 +119,7 @@ void SMC_FILTER_CONFIG(spi_device_handle_t* spi) {
     // Transmit data command over ISO-TP message
     DRV_CANFDSPI_FilterDisable(spi, CAN_FILTER7);
     // CAN_FILTEROBJ_ID fObj;
-    fObj.SID = TRANSMIT_CMD;
+    fObj.SID = X_TX_DATA;
     fObj.SID11 = 0;
     fObj.EID = 0;
     fObj.EXIDE = 0; // only expect standard Frames
@@ -128,7 +128,7 @@ void SMC_FILTER_CONFIG(spi_device_handle_t* spi) {
     // Transmit data flow control message
     DRV_CANFDSPI_FilterDisable(spi, CAN_FILTER8);
     // CAN_FILTEROBJ_ID fObj;
-    fObj.SID = TRANSMIT_FLOW;
+    fObj.SID = X_ISOTP;
     fObj.SID11 = 0;
     fObj.EID = 0;
     fObj.EXIDE = 0; // only expect standard Frames
@@ -137,20 +137,20 @@ void SMC_FILTER_CONFIG(spi_device_handle_t* spi) {
     // Data transmission result message
     DRV_CANFDSPI_FilterDisable(spi, CAN_FILTER9);
     // CAN_FILTEROBJ_ID fObj;
-    fObj.SID = TRANSMIT_RESULT;
+    fObj.SID = X_TX_ACK;
     fObj.SID11 = 0;
     fObj.EID = 0;
     fObj.EXIDE = 0; // only expect standard Frames
     DRV_CANFDSPI_FilterObjectConfigure(spi, CAN_FILTER9, &fObj);
 
     // Ready to operate message
-    DRV_CANFDSPI_FilterDisable(spi, CAN_FILTER10);
-    // CAN_FILTEROBJ_ID fObj;
-    fObj.SID = READY;
-    fObj.SID11 = 0;
-    fObj.EID = 0;
-    fObj.EXIDE = 0; // only expect standard Frames
-    DRV_CANFDSPI_FilterObjectConfigure(spi, CAN_FILTER10, &fObj);
+    // DRV_CANFDSPI_FilterDisable(spi, CAN_FILTER10);
+    // // CAN_FILTEROBJ_ID fObj;
+    // fObj.SID = READY;
+    // fObj.SID11 = 0;
+    // fObj.EID = 0;
+    // fObj.EXIDE = 0; // only expect standard Frames
+    // DRV_CANFDSPI_FilterObjectConfigure(spi, CAN_FILTER10, &fObj);
     
     // // Beginning Operation message
     // DRV_CANFDSPI_FilterDisable(spi, CAN_FILTER11);
@@ -241,47 +241,47 @@ void SMC_MESSAGE_HANDLER(spi_device_handle_t *spi, enum flowFlag *flowFlagPtr) {
 
             // case TIMESTAMP: get_timestamp(&rxd);
             //case SPACECRAFT_STATE: get_spacecraft_state(rxd);
-            case READY:
-                printf("Listen(): CAN Received: READY\n");
-                // DRV_CAN_WRITE(&spi,0,BEGIN,CAN_DLC_64);
-                break;
-                
-            case POWDWN:
-                printf("Listen(): CAN Received: POWDWN\n");
-                *flowFlagPtr = ESD;
-                //powerdown();
-                break;
-            case POWDWN_ALL:
-                printf("Listen(): CAN Received: POWDWN_ALL\n");
-                *flowFlagPtr = ESD;
-                //powerdown();
-                break;
-            case BEGIN: 
-                printf("Listen(): CAN Received: BEGIN\n");
-                *flowFlagPtr = GREENLIGHT;
 
+            case X_BEG_OP: 
+                printf("Listen(): CAN Received: X_BEG_OP\n");
+                *flowFlagPtr = GREENLIGHT;
                 vTaskDelay(100/portTICK_PERIOD_MS);
                 *flowFlagPtr = NOMINAL;   
                 // begin(&rxd);
                 break;
-            case CEASE:
-                printf("Listen(): CAN Received: CEASE\n");
+
+            case X_STOP:
+                printf("Listen(): CAN Received: X_STOP\n");
+                *flowFlagPtr = ESD;
+                //powerdown();
+                break;
+
+            case X_PDOWN:
+                printf("Listen(): CAN Received: X_PDOWN\n");
+                *flowFlagPtr = ESD;
+                //powerdown();
+                break;
+
+            case X_ALL_PDOWN:
+                printf("Listen(): CAN Received: X_ALL_PDOWN\n");
                 *flowFlagPtr = ESD;
                 //stop();
                 break;
-            case QUERY: 
-                printf("Listen(): CAN Received: QUERY\n");
+
+            case X_QDATA: 
+                printf("Listen(): CAN Received: X_QDATA\n");
                 // Query Response                
                 handle_tx(spi);
                 break;
-            case RECEIVE_CMD: 
-                handle_rx(spi,rxd);
+            // case RECEIVE_CMD: 
+                // handle_rx(spi,rxd);
                 // These cases will only occur during data transmission -> handled in handle_quer();
                 // case TRANSMIT_CMD: break;
                 // case TRANSMIT_FLOW: break;
                 // case TRANSMIT_RESULT: break;
-                printf("Listen(): CAN Received: RECEIVE_CMD\n");
-            default: break;
+                // printf("Listen(): CAN Received: RECEIVE_CMD\n");
+            default: 
+            break;
         }
     }else{
             // Do nothing 
@@ -359,11 +359,13 @@ void stop() {
 }
 
 void handle_tx(spi_device_handle_t* spi) {
+
     // Check if data is available for transmit and get name of file
+
     uint8_t data = 0;
     uint32_t data_len = sizeof(data);
 
-    char *name = "Test";
+    char *name = "Dandelions.txt";
     uint8_t name_len = strlen(name) + 1; // add 1 for null terminator
     uint8_t reply_len = MD5_DIGEST_LENGTH + name_len; 
     
@@ -378,7 +380,7 @@ void handle_tx(spi_device_handle_t* spi) {
 
    // memcpy(reply+MD5_DIGEST_LENGTH,name,name_len); //PATRICK
 
-    DRV_CAN_WRITE(spi,reply,RESPONSE,CAN_DLC_64);
+    DRV_CAN_WRITE(spi,reply,P_QDATA_RSP,CAN_DLC_64);
 
     bool ack = false;
     bool recv = false;
@@ -388,7 +390,7 @@ void handle_tx(spi_device_handle_t* spi) {
         uint8_t rxd[MAX_DATA_BYTES] = {0};
         DRV_CAN_READ_OBJ(spi,&rxd,&msgObj);
 
-        if (msgObj.bF.id.SID == TRANSMIT_CMD) {
+        if (msgObj.bF.id.SID == X_TX_DATA) {
             ack = true;
         }
     }
@@ -399,7 +401,7 @@ void handle_tx(spi_device_handle_t* spi) {
             uint8_t rxd[MAX_DATA_BYTES] = {0};
             DRV_CAN_READ_OBJ(spi,&rxd,&msgObj);
 
-            if (msgObj.bF.id.SID == TRANSMIT_RESULT) {
+            if (msgObj.bF.id.SID == X_TX_ACK) {
                 // It doesn't matter here if it fails or succeeds, we don't have any way to initiate a retry
                 recv = true;
             }
@@ -407,16 +409,16 @@ void handle_tx(spi_device_handle_t* spi) {
     }          
 }
 
-void handle_rx(spi_device_handle_t* spi, uint8_t* read) {
-    Iso_Tp_File file;
-    file.md5 = ((uint16_t) read[0]<<8) + (uint16_t) read[1];
-    file.name = (char *) (read+2);
+// // 
+//     Iso_Tp_File file;
+//     file.md5 = ((uint16_t) read[0]<<8) + (uint16_t) read[1];
+//     file.name = (char *) (read+2);
 
-    uint8_t txd = NULL;
+//     uint8_t txd = NULL;
     
-    DRV_CAN_WRITE(spi, &txd, RX_READY, CAN_DLC_64);
+//     DRV_CAN_WRITE(spi, &txd, RX_READY, CAN_DLC_64);
 
-    iso_tp_receive(spi);
+//     iso_tp_receive(spi);
 
-    /* save rxd to a file*/
-}
+//     /* save rxd to a file*/
+// }void handle_rx(spi_device_handle_t* spi, uint8_t* read) {

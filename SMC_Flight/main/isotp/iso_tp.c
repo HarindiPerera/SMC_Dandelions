@@ -40,7 +40,7 @@ void iso_tp_send_single_frame(spi_device_handle_t* spi, uint8_t* data, uint8_t d
         memcpy(msgdata+2+data_len,padding,padding_len);
     }
     
-    DRV_CAN_WRITE(spi,msgdata,TRANSMIT,CAN_DLC_64);
+    DRV_CAN_WRITE(spi,msgdata,P_ISOTP,CAN_DLC_64);
 }
 
 void iso_tp_send_first_frame(spi_device_handle_t* spi, iso_tp_control_t* iso, uint8_t* data, uint32_t data_len) {
@@ -61,7 +61,7 @@ void iso_tp_send_first_frame(spi_device_handle_t* spi, iso_tp_control_t* iso, ui
     }
     iso->index++;
 
-    DRV_CAN_WRITE(spi,msgdata,TRANSMIT,CAN_DLC_64);
+    DRV_CAN_WRITE(spi,msgdata, P_ISOTP, CAN_DLC_64);
 }
 
 void iso_tp_send_consecutive_frame(spi_device_handle_t* spi, iso_tp_control_t* iso, uint8_t* data, uint32_t data_len) {
@@ -86,7 +86,7 @@ void iso_tp_send_consecutive_frame(spi_device_handle_t* spi, iso_tp_control_t* i
         memcpy(msgdata+data_len, padding_bytes, padding_length);
     }
     iso->index++;
-    DRV_CAN_WRITE(spi,msgdata,TRANSMIT,CAN_DLC_64);
+    DRV_CAN_WRITE(spi,msgdata,P_ISOTP,CAN_DLC_64);
 }
 
 bool iso_tp_recv_flow(spi_device_handle_t* spi, iso_tp_control_t* iso) {
@@ -99,7 +99,7 @@ bool iso_tp_recv_flow(spi_device_handle_t* spi, iso_tp_control_t* iso) {
     uint8_t rxd[MAX_DATA_BYTES] = {0};
     while (!recv && continue_loop) {
         DRV_CAN_READ_OBJ(spi,&rxd,&msgObj);
-        if (msgObj.bF.id.SID == TRANSMIT_FLOW) {
+        if (msgObj.bF.id.SID == X_ISOTP) {
             if (rxd[0] == N_PCI_FC) {
                 iso->flow = (FLOW_CONTROL_FLAG) rxd[1] & 0xF0;
                 iso->block_size = rxd[2];
@@ -156,77 +156,77 @@ bool iso_tp_send(spi_device_handle_t* spi, uint8_t* data, uint32_t data_len) {
     return true;
 }
 
-void iso_tp_send_flow(spi_device_handle_t* spi, iso_tp_control_t* iso) {
-    uint8_t msgdata[MAX_DATA_BYTES] = {0};
-    memset(msgdata,N_PCI_FC,sizeof(uint8_t));
-    memcpy(msgdata+1,&iso->flow,sizeof(uint8_t));
-    memcpy(msgdata+2,&iso->block_size,sizeof(uint8_t));
-    memcpy(msgdata+3,&iso->sep_time,sizeof(uint8_t));
-    DRV_CAN_WRITE(spi,msgdata,TRANSMIT_FLOW,CAN_DLC_64);
-}
+// void iso_tp_send_flow(spi_device_handle_t* spi, iso_tp_control_t* iso) {
+//     uint8_t msgdata[MAX_DATA_BYTES] = {0};
+//     memset(msgdata,N_PCI_FC,sizeof(uint8_t));
+//     memcpy(msgdata+1,&iso->flow,sizeof(uint8_t));
+//     memcpy(msgdata+2,&iso->block_size,sizeof(uint8_t));
+//     memcpy(msgdata+3,&iso->sep_time,sizeof(uint8_t));
+//     DRV_CAN_WRITE(spi,msgdata,TRANSMIT_FLOW,CAN_DLC_64);
+// }
 
-uint8_t* iso_tp_receive(spi_device_handle_t* spi) {
-    iso_tp_control_t iso = {CONTINUE,1,0,0,0,PCI_12};
+// uint8_t* iso_tp_receive(spi_device_handle_t* spi) {
+//     iso_tp_control_t iso = {CONTINUE,1,0,0,0,PCI_12};
 
-    uint8_t* rxd = (uint8_t*) malloc(MAX_DATA_BYTES * sizeof(uint8_t));
-    CAN_RX_MSGOBJ msgObj;
-    DRV_CAN_READ_OBJ(spi,&rxd,&msgObj);
+//     uint8_t* rxd = (uint8_t*) malloc(MAX_DATA_BYTES * sizeof(uint8_t));
+//     CAN_RX_MSGOBJ msgObj;
+//     DRV_CAN_READ_OBJ(spi,&rxd,&msgObj);
 
-    if (msgObj.bF.id.SID == RECEIVE_FRAME) {
-        if (rxd[0] == N_PCI_SF) {
-            uint8_t data_len = rxd[1];
-            uint8_t* data = (uint8_t*) malloc(data_len * sizeof(uint8_t));
-            memcpy(data,rxd+2,data_len);
-            return data;
-        } else if (rxd[0] == N_PCI_FF) {
-            iso.pci = PCI_32;
-            uint32_t data_len = 0;
-            memcpy(&data_len,rxd+2,sizeof(uint32_t));
-            uint8_t* data = (uint8_t*) malloc(data_len * sizeof(uint8_t));
-            memcpy(data,rxd+6,MAX_DATA_BYTES-6);
-            iso.index++;
-            iso.num_segments = data_len / (MAX_DATA_BYTES-iso.pci);
-            if (data_len % (MAX_DATA_BYTES-iso.pci) != 0) {
-                iso.num_segments++;
-            }
-            iso_tp_send_flow(spi,&iso);
-            while (iso.index < iso.num_segments) {
-                int check_rx_register = DRV_CAN_READ_OBJ(spi,&rxd,&msgObj);
-                if (!check_rx_register) {
-                    if (msgObj.bF.id.SID == RECEIVE_FRAME) {
-                        if (rxd[0] == N_PCI_CF) {
-                            uint32_t segment_length = data_len - iso.index * (MAX_DATA_BYTES-iso.pci);
-                            if (segment_length > MAX_DATA_BYTES-iso.pci) {
-                                segment_length = MAX_DATA_BYTES-iso.pci;
-                            }
-                            memcpy(data+iso.index*(MAX_DATA_BYTES-iso.pci),rxd+2,segment_length);
-                            iso.index++;                        
-                        }
-                    }
-                } else if (check_rx_register == -1) {
-                    iso.flow = WAIT;
-                    iso_tp_send_flow(spi,&iso);
-                    bool continue_rx = false;
-                    while (!continue_rx) {
-                        usleep(iso.sep_time);
-                        CAN_RX_FIFO_EVENT rxFlags;
-                        DRV_CANFDSPI_ReceiveChannelEventGet(spi, CAN_FIFO_CH2, &rxFlags);
-                        if (~rxFlags & CAN_RX_FIFO_OVERFLOW_EVENT) {
-                            iso.flow = CONTINUE;
-                            iso_tp_send_flow(spi,&iso);
-                            continue_rx = true;
-                        }
-                    }                    
-                }
-                {
-                    iso.flow = ABORT;
-                    iso_tp_send_flow(spi,&iso);
-                    return NULL;
-                }
+//     if (msgObj.bF.id.SID == RECEIVE_FRAME) {
+//         if (rxd[0] == N_PCI_SF) {
+//             uint8_t data_len = rxd[1];
+//             uint8_t* data = (uint8_t*) malloc(data_len * sizeof(uint8_t));
+//             memcpy(data,rxd+2,data_len);
+//             return data;
+//         } else if (rxd[0] == N_PCI_FF) {
+//             iso.pci = PCI_32;
+//             uint32_t data_len = 0;
+//             memcpy(&data_len,rxd+2,sizeof(uint32_t));
+//             uint8_t* data = (uint8_t*) malloc(data_len * sizeof(uint8_t));
+//             memcpy(data,rxd+6,MAX_DATA_BYTES-6);
+//             iso.index++;
+//             iso.num_segments = data_len / (MAX_DATA_BYTES-iso.pci);
+//             if (data_len % (MAX_DATA_BYTES-iso.pci) != 0) {
+//                 iso.num_segments++;
+//             }
+//             iso_tp_send_flow(spi,&iso);
+//             while (iso.index < iso.num_segments) {
+//                 int check_rx_register = DRV_CAN_READ_OBJ(spi,&rxd,&msgObj);
+//                 if (!check_rx_register) {
+//                     if (msgObj.bF.id.SID == RECEIVE_FRAME) {
+//                         if (rxd[0] == N_PCI_CF) {
+//                             uint32_t segment_length = data_len - iso.index * (MAX_DATA_BYTES-iso.pci);
+//                             if (segment_length > MAX_DATA_BYTES-iso.pci) {
+//                                 segment_length = MAX_DATA_BYTES-iso.pci;
+//                             }
+//                             memcpy(data+iso.index*(MAX_DATA_BYTES-iso.pci),rxd+2,segment_length);
+//                             iso.index++;                        
+//                         }
+//                     }
+//                 } else if (check_rx_register == -1) {
+//                     iso.flow = WAIT;
+//                     iso_tp_send_flow(spi,&iso);
+//                     bool continue_rx = false;
+//                     while (!continue_rx) {
+//                         usleep(iso.sep_time);
+//                         CAN_RX_FIFO_EVENT rxFlags;
+//                         DRV_CANFDSPI_ReceiveChannelEventGet(spi, CAN_FIFO_CH2, &rxFlags);
+//                         if (~rxFlags & CAN_RX_FIFO_OVERFLOW_EVENT) {
+//                             iso.flow = CONTINUE;
+//                             iso_tp_send_flow(spi,&iso);
+//                             continue_rx = true;
+//                         }
+//                     }                    
+//                 }
+//                 {
+//                     iso.flow = ABORT;
+//                     iso_tp_send_flow(spi,&iso);
+//                     return NULL;
+//                 }
                 
-            }
-            return data;
-        }
-    }
-    return NULL; 
-}
+//             }
+//             return data;
+//         }
+//     }
+//     return NULL; 
+// }
