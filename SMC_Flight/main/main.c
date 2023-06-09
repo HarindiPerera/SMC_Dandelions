@@ -242,7 +242,7 @@ void app_main(void)
            // This should have a hard limit
             vTaskDelay(100/portTICK_PERIOD_MS);
         }
-        printf("Sent: P_QDATA_RSP (response to data query)\n")
+        printf("Sent: P_QDATA_RSP (response to data query)\n");
         DRV_CAN_WRITE(&spi_1, &nil, P_QDATA_RSP, CAN_DLC_64);
     }
 
