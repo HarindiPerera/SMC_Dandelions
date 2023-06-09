@@ -229,11 +229,11 @@ void SMC_MESSAGE_HANDLER(spi_device_handle_t *spi, enum flowFlag *flowFlagPtr) {
 
         // the following prints out the entire frame.
         
-        printf("SMC_MSG_HANDLER Rx = ");
-        for (uint8_t i = 0; i<MAX_DATA_BYTES; i++) {
-            printf("%X",rxd[i]);
-        }
-        printf("\n");
+        // printf("SMC_MSG_HANDLER Rx = ");
+        // for (uint8_t i = 0; i<MAX_DATA_BYTES; i++) {
+        //     printf("%X",rxd[i]);
+        // }
+        // printf("\n");
 
         // printf("SID: %X\n",rxObj.bF.id.SID);
 
@@ -243,7 +243,7 @@ void SMC_MESSAGE_HANDLER(spi_device_handle_t *spi, enum flowFlag *flowFlagPtr) {
             //case SPACECRAFT_STATE: get_spacecraft_state(rxd);
 
             case X_BEG_OP: 
-                printf("Listen(): CAN Received: X_BEG_OP\n");
+                printf("Received:    X_BEG_OP\n");
                 *flowFlagPtr = GREENLIGHT;
                 vTaskDelay(100/portTICK_PERIOD_MS);
                 *flowFlagPtr = NOMINAL;   
@@ -251,27 +251,26 @@ void SMC_MESSAGE_HANDLER(spi_device_handle_t *spi, enum flowFlag *flowFlagPtr) {
                 break;
 
             case X_STOP:
-                printf("Listen(): CAN Received: X_STOP\n");
-                *flowFlagPtr = ESD;
+                printf("Received:    X_STOP\n");
+                *flowFlagPtr = CEASE;
                 //powerdown();
                 break;
 
             case X_PDOWN:
-                printf("Listen(): CAN Received: X_PDOWN\n");
+                printf("Received:    X_PDOWN\n");
                 *flowFlagPtr = ESD;
                 //powerdown();
                 break;
 
             case X_ALL_PDOWN:
-                printf("Listen(): CAN Received: X_ALL_PDOWN\n");
+                printf("Received:    X_ALL_PDOWN\n");
                 *flowFlagPtr = ESD;
                 //stop();
                 break;
 
             case X_QDATA: 
-                printf("Listen(): CAN Received: X_QDATA\n");
-                // Query Response                
-                handle_tx(spi);
+                printf("Received:    X_QDATA\n");
+                *flowFlagPtr = DATA_READY;
                 break;
             // case RECEIVE_CMD: 
                 // handle_rx(spi,rxd);
@@ -409,7 +408,9 @@ void handle_tx(spi_device_handle_t* spi) {
     }          
 }
 
-// // 
+// OUR PAYLOAD WILL NEVER RECEIVE ANY FLASHING ECT
+
+//void handle_rx(spi_device_handle_t* spi, uint8_t* read) {
 //     Iso_Tp_File file;
 //     file.md5 = ((uint16_t) read[0]<<8) + (uint16_t) read[1];
 //     file.name = (char *) (read+2);
@@ -421,4 +422,4 @@ void handle_tx(spi_device_handle_t* spi) {
 //     iso_tp_receive(spi);
 
 //     /* save rxd to a file*/
-// }void handle_rx(spi_device_handle_t* spi, uint8_t* read) {
+// }

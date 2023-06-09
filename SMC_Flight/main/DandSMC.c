@@ -349,7 +349,6 @@ esp_err_t I2C_Init(void)
  */
 esp_err_t I2C_Scan()
 {
-   
 
     esp_err_t rtn = ESP_OK;
     uint8_t i2c_addresses[128];             //An array to hold the addresses
@@ -365,8 +364,7 @@ esp_err_t I2C_Scan()
             i2c_addresses[num_devices++] = i;
         }
     }
-
-   
+    // Only one device is found I reckon it is the bitmask of the ADC power stuff
 
     if (DEBUG){
         printf("I2C_Scan(): Found %d I2C devices:\n", num_devices);
@@ -647,7 +645,7 @@ esp_err_t checkGPIOS(void){
     if (levels != bitmask){
         err = ESP_FAIL;
     }
-   
+    printf("systemHealthCheck debug\n");
     return err;
 }
 
@@ -666,7 +664,6 @@ esp_err_t checkMem(void){
         logError(str);
     }
     return ESP_OK;  // what would constitue a memory issue? 
-    
 }
 
 /**
@@ -687,9 +684,9 @@ esp_err_t systemHealthCheck(void){
     // It is the responsibility of the Calling function to make sure that everything is established 
 
     rtn |= checkGPIOS();   // Check the GPIO's
-    rtn |= checkMem();     // Check the memory avaliable
+    //rtn |= checkMem();     // Check the memory avaliable
     i2cErr = I2C_Scan();   // find both the adcs.
-
+    // I think we are getting stuck here because the i2c buss is not powered
     if(i2cErr == ESP_FAIL){
         rtn |= i2cErr;
     }else if(i2cErr == ESP_NONCRITICAL){
@@ -823,6 +820,7 @@ esp_err_t RunExperiment(int *phase, int *ticks, enum flowFlag *flowFlagPtr){
         );   
 
     //Create Buffer for ADC adresses
+    ADC_Pwr(1);
     uint8_t ADC[] = {ADC_ADDR_1 ,ADC_ADDR_2 };
 
     EnMotor(1);
@@ -832,6 +830,7 @@ esp_err_t RunExperiment(int *phase, int *ticks, enum flowFlag *flowFlagPtr){
         // If system Health Check fails we return a fail
         return ESP_FAIL;
     }
+    
 
     // CREATE THE AMOUNT OF TICKS TO MOVE
     (*ticks) = TICKS_PER_REV*2;        
@@ -1172,5 +1171,28 @@ void logError(const char* info, ...){
     //print out array
     for (int i = 0; i <= lastPosition; i++) {
         printf("%s", dataArray[i]);
+    }
+}
+
+void printFlowFlag(enum flowFlag flowFlagPtr){
+    switch (flowFlagPtr){
+        case NOMINAL:
+            printf("FlowFlag: NOMINAL\n");
+        break;
+        case ESD:
+            printf("FlowFlag: ESD\n");
+        break;
+        case CEASE:
+            printf("FlowFlag: CEASE\n");
+        break;
+        case DATA_READY:
+            printf("FlowFlag: DATA_READY\n");
+        break;
+        case NO_DATA:
+            printf("FlowFlag: NO_DATA\n");
+        break;
+        default:
+            printf("flow flag not recognised\n");
+        break;
     }
 }

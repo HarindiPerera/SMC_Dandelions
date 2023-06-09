@@ -95,7 +95,9 @@ enum flowFlag {
     GREENLIGHT,
     NOMINAL,
     ESD,
+    CEASE,
     NO_DATA,
+    DATA_READY
 }; 
 
 // Patrick Task Params struct
@@ -147,6 +149,7 @@ esp_err_t neutralise(int *phase, int *tick, enum flowFlag *flowFlagPtr);
 esp_err_t setExperimentPhaseTicks(int *phase, int *ticks, bool reset);
 esp_err_t getExerpimentPhaseTicks(int *phase, int* ticks);
 
+void printFlowFlag(enum flowFlag flowFlagPtr);
     
 void logError(const char* info, ...); 
 

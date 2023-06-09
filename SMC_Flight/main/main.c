@@ -63,10 +63,8 @@ void Listen(void *pvParameters){
     TaskParams_t* task = (TaskParams_t*)pvParameters; 
     spi_device_handle_t spi = task->spi;
     for(;;){
-        vTaskDelay(10/portTICK_PERIOD_MS);
-        // xSemaphoreTake(exclusiveAccessMutex, portMAX_DELAY);        
+        vTaskDelay(10/portTICK_PERIOD_MS);      
         SMC_MESSAGE_HANDLER(&spi,&(task->ctrlFlowFlag)); 
-        // xSemaphoreGive(exclusiveAccessMutex);
     }    
 }
 
@@ -106,9 +104,6 @@ void app_main(void)
     ESP_ERROR_CHECK( err );
     printf("\n");     
     
-    // mutex protects the writing to CAN funcation 
-    // exclusiveAccessMutex = xSemaphoreCreateMutex();
-
     // initialise all the hardware. Restart if no good
     if(setupHW()!= ESP_OK){
         printf("SETUP ERROR: Restarting...\n");
@@ -167,7 +162,7 @@ void app_main(void)
     ESP_ERROR_CHECK(DRV_CANFDSPI_RamInit(&spi_1, 0xff));
     // Configuration Done: Select Normal Mode
     ESP_ERROR_CHECK(DRV_CANFDSPI_OperationModeSelect(&spi_1, CAN_NORMAL_MODE));
-    // ESP_ERROR_CHECK(DRV_CANFDSPI_OperationModeSelect(&spi_1, CAN_EXTERNAL_LOOPBACK_MODE));
+    //ESP_ERROR_CHECK(DRV_CANFDSPI_OperationModeSelect(&spi_1, CAN_EXTERNAL_LOOPBACK_MODE));
     
     vTaskDelay(1000/portTICK_PERIOD_MS);
     printf("OP Mode 0:%X\n",DRV_CANFDSPI_OperationModeGet(&spi_1));
@@ -187,45 +182,21 @@ void app_main(void)
     int i = 'x';
     uint8_t nil =0;
 
+    if(DEBUG){printf("Send: P_RDY_OP\n");}
+    vTaskDelay(1000/portTICK_PERIOD_MS);
+    DRV_CAN_WRITE(&spi_1, &nil, P_RDY_OP, CAN_DLC_64);  
+    params.ctrlFlowFlag = NOMINAL;
 
-    // while (i=='x') {
-       
-    //     switch(i) {
-    //         case 'x':
-                if(DEBUG){printf("Send: P_RDY_OP\n");}
-                vTaskDelay(100/portTICK_PERIOD_MS);
-                DRV_CAN_WRITE(&spi_1, &nil, P_RDY_OP, CAN_DLC_64);
-                params.ctrlFlowFlag = NOMINAL;
-    //             i =0;
-    //             break;
-    //         default:
-    //         break;
-    //     }
-    // }
-
-
-    // Wait for Greenlight 
-    printf("Waiting for greenlight\n");
+    //Wait for Greenlight 
+    if(DEBUG){printf("Waiting for greenlight\n");}
     while(params.ctrlFlowFlag != GREENLIGHT){
         vTaskDelay(100/portTICK_PERIOD_MS);
     }
-
-  
-    // i = 'x';
-    // while (i=='x') {
-       
-    //     switch(i) {
-    //         case 'x':
-                if(DEBUG){printf("Send: P_BEG_OP\n");}
-                vTaskDelay(100/portTICK_PERIOD_MS);
-                DRV_CAN_WRITE(&spi_1, &nil, P_BEG_OP, CAN_DLC_64);
-                params.ctrlFlowFlag = NOMINAL;
-    //             i =0;
-    //             break;
-    //         default:
-    //         break;
-    //     }
-    // }
+    if(DEBUG){printf("Payload Greenlit\n");}
+    if(DEBUG){printf("Send: P_BEG_OP \n");}
+    vTaskDelay(100/portTICK_PERIOD_MS);
+    DRV_CAN_WRITE(&spi_1, &nil, P_BEG_OP, CAN_DLC_64);
+    params.ctrlFlowFlag = NOMINAL;
 
     // initialise the phase, tick and experiment count instantce. 
     int ticks = 0;
@@ -233,7 +204,7 @@ void app_main(void)
     int experimentCount = 0;
 
     if( params.ctrlFlowFlag == NOMINAL) {
-        // // printf("This is the experiment running\n");
+        
         // getExerpimentPhaseTicks(&phase,&ticks);      // Check the previous phase and ticks 
         // if (phase !=0 || ticks !=0){
         //     printf("main: Phase = %d, Tick = %d\n", phase,ticks);
@@ -244,17 +215,43 @@ void app_main(void)
         // setExperimentPhaseTicks(&phase,&ticks,0);        // set the phase and ticks. 
         // if ((phase!=0)|(ticks!=0)){
         //     params.ctrlFlowFlag = ESD;
-        //     logError("Motor actualtion terminated unexpectely\n"); 
+        //     logError("Motor actuation terminated unexpectely\n"); 
         // }
-        // // This is a 'just in case' condition
-        // EnMotor(0);         
-        // ADC_Pwr(0);         
-        // updateExperimentCount(0,&experimentCount);
+        
+        // EnMotor(0);     // Disable the motor
+        // ADC_Pwr(0);     // Disable the ADC's       
+        // updateExperimentCount(0,&experimentCount);  // update the experiment count
+
+
     }
 
-// End Condition loop
 
-    printf("End Condition: \n");
+    printf("Sent: P_STOP (Payload has finished opperation)\n");
+    DRV_CAN_WRITE(&spi_1, &nil, P_STOP, CAN_DLC_64);
+    // Either in an ESD state or in a data ready to send state
+
+    if(params.ctrlFlowFlag == ESD){
+        // if it is for an emergency shutdown we are ready to stop
+        printf("Sent: P_DOWN (Payload is ready to be shut down EMERGENCY CASE)\n");
+        DRV_CAN_WRITE(&spi_1, &nil, P_PDOWN, CAN_DLC_64);
+        // _______________________This is an end condition______________
+    }else{
+        // if not an emergency situation we are ready to send data (probably)
+        while(params.ctrlFlowFlag != DATA_READY){
+           // Wait for the the X_QDATA msg to come through 
+           // This should have a hard limit
+            vTaskDelay(100/portTICK_PERIOD_MS);
+        }
+        printf("Sent: P_QDATA_RSP (response to data query)\n")
+        DRV_CAN_WRITE(&spi_1, &nil, P_QDATA_RSP, CAN_DLC_64);
+    }
+
+    // Now we need send the data. 
+
+
+// End Condition loop
+/*
+    printf("End Condition: HOST COMMANDS\n");
     printf("1 = X_BEG_OP\n");
     printf("2 = X_STOP\n");
     printf("3 = X_ALL_PDOWN\n");
@@ -263,48 +260,48 @@ void app_main(void)
     printf("6 = X_TX_DATA\n");
     printf("7 = X_TX_ACK\n");
     printf("8 = X_ISOTP\n");
-
+*/
     for(;;){  
 
        scanf("%d",&i);
         switch (i) {
             case 1:
-                printf("X_BEG_OP\n");
+                printf("Sent: X_BEG_OP\n");
                 DRV_CAN_WRITE(&spi_1, &nil, X_BEG_OP, CAN_DLC_64);
                 // wait for reply 
                 break;
             case 2:
-                printf("X_STOP\n");
+                printf("Sent: X_STOP\n");
                 DRV_CAN_WRITE(&spi_1, &nil, X_STOP, CAN_DLC_64);
                 
                 // wait for reply 
                 break;
             case 3:
-                printf("X_ALL_PDOWN\n");
+                printf("Sent: X_ALL_PDOWN\n");
                 DRV_CAN_WRITE(&spi_1, &nil, X_ALL_PDOWN, CAN_DLC_64);
                 
                 // wait for reply 
                 break;
             case 4:
-                printf("X_PDOWN\n");
+                printf("Sent: X_PDOWN\n");
                 DRV_CAN_WRITE(&spi_1, &nil, X_PDOWN, CAN_DLC_64);
                 // wait for reply 
                 break;
             case 5:
-                printf("X_QDATA\n");
+                printf("Sent: X_QDATA\n");
                 DRV_CAN_WRITE(&spi_1, &nil, X_QDATA, CAN_DLC_64);
                 // wait for reply 
                 break;
             case 6:
-                printf("X_TX_DATA\n");
+                printf("Sent: X_TX_DATA\n");
                 DRV_CAN_WRITE(&spi_1, &nil, X_TX_DATA, CAN_DLC_64);
                 break;
             case 7: 
-                printf("X_TX_ACK\n");
+                printf("Sent: X_TX_ACK\n");
                 DRV_CAN_WRITE(&spi_1, &nil, X_TX_ACK, CAN_DLC_64);
                 break; 
             case 8:
-                printf("X_ISOTP\n");
+                printf("Sent: X_ISOTP\n");
                 DRV_CAN_WRITE(&spi_1, &nil, X_ISOTP, CAN_DLC_64);
                 break;
 

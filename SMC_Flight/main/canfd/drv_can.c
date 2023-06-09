@@ -147,17 +147,14 @@ bool DRV_CAN_READ(spi_device_handle_t* spi, uint8_t* rxd) {
     // Receive Message Object
     CAN_RX_MSGOBJ rxObj;
     // uint8_t rxd[MAX_DATA_BYTES];
-
     // Check that FIFO is not empty
     CAN_RX_FIFO_EVENT rxFlags;
-
     DRV_CANFDSPI_ReceiveChannelEventGet(spi, CAN_FIFO_CH2, &rxFlags);
-
     // printf("rxflag: %X\n",rxFlags);
 
     if (rxFlags & CAN_RX_FIFO_NOT_EMPTY_EVENT) {
         // Read message and UINC
-        printf("%X\n",DRV_CANFDSPI_ReceiveMessageGet(spi, CAN_FIFO_CH2, &rxObj, rxd, MAX_DATA_BYTES));
+        //printf("%X\n",DRV_CANFDSPI_ReceiveMessageGet(spi, CAN_FIFO_CH2, &rxObj, rxd, MAX_DATA_BYTES));
 
         return true;
         // // Process message
@@ -179,14 +176,16 @@ int DRV_CAN_READ_OBJ(spi_device_handle_t* spi, uint8_t* rxd, CAN_RX_MSGOBJ* rxOb
     uint8_t rtn = DRV_CANFDSPI_ReceiveChannelEventGet(spi, CAN_FIFO_CH2, &rxFlags);
 
     //printf("FRV_CAN_READ_OBJ(): DRV_CANFDSPI_ReceiveChannelEventGet(): %d\n",rtn);
-   // printf("rxflag: %X\n",rxFlags);
+   //printf("rxflag: %X\n",rxFlags);
 
     // rxflag is always returning 0. which means that this function always exits with return != 0
 
     if (rxFlags & CAN_RX_FIFO_NOT_EMPTY_EVENT) {
-        // Read message and UINC
-        printf("%X\n",DRV_CANFDSPI_ReceiveMessageGet(spi, CAN_FIFO_CH2, rxObj, rxd, MAX_DATA_BYTES));
-
+        // Read message and UINC 
+        
+        uint8_t receivedMsg = DRV_CANFDSPI_ReceiveMessageGet(spi, CAN_FIFO_CH2, rxObj, rxd, MAX_DATA_BYTES);
+       // printf("%X\n",receivedMsg);
+       
         return 0;
     } else if (rxFlags & CAN_RX_FIFO_OVERFLOW_EVENT)
     {
@@ -199,7 +198,6 @@ int DRV_CAN_READ_OBJ(spi_device_handle_t* spi, uint8_t* rxd, CAN_RX_MSGOBJ* rxOb
 void DRV_CAN_WRITE(spi_device_handle_t* spi, uint8_t* txd, uint16_t id, CAN_DLC length) {
     
     // The Write function will only ever be interupted by the hardware watchdog. 
-    // xSemaphoreTake(exclusiveAccessMutex, portMAX_DELAY);
 
     // Assemble transmit message: CAN FD Base fram with BRS, 64 bytes
     CAN_TX_MSGOBJ txObj = {0};
@@ -235,7 +233,7 @@ void DRV_CAN_WRITE(spi_device_handle_t* spi, uint8_t* txd, uint16_t id, CAN_DLC 
     DRV_CANFDSPI_TransmitChannelFlush(spi,CAN_FIFO_CH1);
     DRV_CANFDSPI_TransmitChannelEventGet(spi, CAN_FIFO_CH1, &txFlags);
 
-    printf("drv_can.c: DRV_CAN_WRITE: txflag: %X\n", txFlags);
+    //printf("drv_can.c: DRV_CAN_WRITE: txflag: %X\n", txFlags);
 
     if (txFlags & CAN_TX_FIFO_NOT_FULL_EVENT) {
         // Load message and transmit
@@ -245,6 +243,4 @@ void DRV_CAN_WRITE(spi_device_handle_t* spi, uint8_t* txd, uint16_t id, CAN_DLC 
         //printf("DRV_CANFD_SPI_TRANSMITCHannelLoad: %X\n",DRV_CANFDSPI_TransmitChannelLoad(spi, CAN_FIFO_CH1, &txObj, txd, 
         //        DRV_CANFDSPI_DlcToDataBytes(txObj.bF.ctrl.DLC), flush));
     }
-    // xSemaphoreGive(exclusiveAccessMutex);
-
 }
